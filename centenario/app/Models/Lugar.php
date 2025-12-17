@@ -13,6 +13,10 @@ class Lugar extends Model
         'direccion','localidad','orden','activo'
     ];
 
-    public function categoria(){ return $this->belongsTo(Categoria::class); }
-    public function imagenes(){ return $this->hasMany(LugarImagen::class)->orderBy('orden'); }
+    public function categoria(){ 
+        return $this->belongsTo(Categoria::class); 
+    }
+    public function imagenes(){ 
+        return $this->hasMany(LugarImagen::class)->orderBy('orden'); 
+    }
 }

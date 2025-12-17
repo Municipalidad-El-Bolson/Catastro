@@ -50,11 +50,13 @@ class LugarController extends Controller
             'lng' => (float)$lugar->lng,
             'categoria' => $lugar->categoria?->nombre,
             'imagenes' => $lugar->imagenes->map(fn($img)=>[
-                'url' => str_starts_with($img->path, 'http')
-                    ? $img->path
-                    : asset('storage/'.$img->path),
-                'titulo' => $img->titulo,
+                'kind'  => $img->kind, // file | folder
+                'url'   => $img->kind === 'file' && $img->drive_file_id
+                    ? route('drive.file', $img->drive_file_id)
+                    : ($img->path ?? null),
+                'titulo' => $img->titulo ?: $lugar->titulo,
             ]),
+
         ]);
     }
 }

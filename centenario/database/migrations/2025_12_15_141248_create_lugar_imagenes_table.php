@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('lugar_imagenes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('lugar_id')->constrained('lugares')->cascadeOnDelete();
-            $table->string('path');              // storage/app/public/...
+            $table->string('path');
             $table->string('titulo')->nullable();
             $table->integer('orden')->default(0);
             $table->timestamps();

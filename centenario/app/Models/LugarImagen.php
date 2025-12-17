@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class LugarImagen extends Model
 {
-    protected $fillable = ['lugar_id','path','titulo','orden'];
-    public function lugar(){ return $this->belongsTo(Lugar::class); }
+    protected $table = 'lugar_imagenes';
+
+    protected $fillable = ['lugar_id','path','drive_file_id','titulo','orden'];
+
+    public function lugar(){ 
+        return $this->belongsTo(Lugar::class); 
+    }
 }
 

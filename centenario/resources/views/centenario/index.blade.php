@@ -5,7 +5,8 @@
 @endpush
 
 @section('content')
-<div x-data="centenarioMap()" class="h-[calc(100vh-64px)] flex">
+<div x-data="centenarioMap()" x-init="init()" class="h-[calc(100vh-64px)] flex">
+
 
   {{-- MAPA --}}
   <div id="map" class="flex-1"></div>
@@ -26,18 +27,32 @@
       <template x-if="!loading && detalle">
         <div class="space-y-3">
           <div class="text-sm text-gray-500" x-text="detalle.categoria ?? ''"></div>
-          <div class="text-sm" x-text="detalle.descripcion ?? ''"></div>
+          <div class="text-sm whitespace-pre-line" x-text="detalle.descripcion ?? ''"></div>
 
           <div class="text-sm text-gray-600" x-text="detalle.direccion ?? ''"></div>
 
           <div class="grid grid-cols-2 gap-2" x-show="(detalle.imagenes||[]).length">
-            <template x-for="img in detalle.imagenes" :key="img.url">
-              <figure class="rounded overflow-hidden border">
-                <img :src="img.url" class="w-full h-28 object-cover" />
-                <figcaption class="p-2 text-xs text-gray-600" x-text="img.titulo ?? ''"></figcaption>
-              </figure>
+            <template x-for="item in detalle.imagenes" :key="item.url">
+
+              <template x-if="isImageUrl(item.url, item.titulo)">
+                <figure class="rounded overflow-hidden border">
+                  <img :src="item.url" class="w-full h-28 object-cover">
+                  <figcaption class="p-2 text-xs text-gray-600" x-text="item.titulo ?? ''"></figcaption>
+                </figure>
+              </template>
+
+
+              <template x-if="!isImageUrl(item.url, item.titulo)">
+                <a :href="item.url" target="_blank"
+                  class="rounded border p-3 text-sm hover:bg-gray-50 flex items-center gap-2">
+                  <span>🔗</span>
+                  <span class="truncate" x-text="item.titulo ?? 'Abrir recurso'"></span>
+                </a>
+              </template>
+
             </template>
           </div>
+
         </div>
       </template>
     </div>
@@ -56,6 +71,38 @@ function centenarioMap(){
     loading: false,
     detalle: null,
 
+    // Convierte links de Drive a URL directa (sirve para <img> si el archivo es una imagen)
+    driveDirectUrl(url){
+      const u = String(url || '');
+
+      // - https://drive.google.com/file/d/<ID>
+      // - https://drive.google.com/file/d/<ID>/view
+      const m1 = u.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/i);
+      if (m1?.[1]) return `https://drive.google.com/uc?export=view&id=${m1[1]}`;
+
+      // - https://drive.google.com/open?id=<ID>
+      const m2 = u.match(/[?&]id=([^&]+)/i);
+      if (u.includes('drive.google.com') && m2?.[1]) {
+        return `https://drive.google.com/uc?export=view&id=${m2[1]}`;
+      }
+
+      return u;
+    },
+
+    // Detecta imagen por extensión (en URL o en titulo). NO por ser Drive.
+    isImageUrl(url, titulo){
+      const u = String(url || '').toLowerCase();
+      const t = String(titulo || '').toLowerCase();
+
+      const extOk = (s)=> (
+        s.endsWith('.jpg') || s.endsWith('.jpeg') || s.endsWith('.png') || s.endsWith('.webp') ||
+        s.endsWith('.gif') || s.endsWith('.jfif') || s.endsWith('.bmp') || s.endsWith('.tif') ||
+        s.endsWith('.tiff') || s.endsWith('.svg')
+      );
+
+      return extOk(u) || extOk(t);
+    },
+
     async init(){
       mapboxgl.accessToken = @json(config('services.mapbox.token'));
 
@@ -68,8 +115,6 @@ function centenarioMap(){
       });
 
       this.map.on('load', async () => {
-        // ✅ 3D Buildings (solo después del load)
-        // Nota: en algunos estilos satelitales puede no verse tan bien.
         try {
           this.map.addLayer({
             id: '3d-buildings',
@@ -89,7 +134,6 @@ function centenarioMap(){
           console.warn('No se pudo agregar 3D buildings:', e);
         }
 
-        // ✅ Cargar puntos
         const geo = await fetch(@json(route('centenario.geojson'))).then(r=>r.json());
 
         this.map.addSource('lugares', { type:'geojson', data: geo });
@@ -131,13 +175,9 @@ function centenarioMap(){
       } finally {
         this.loading = false;
       }
-    }
+    },
   }
 }
 
-document.addEventListener('alpine:init', () => {});
-document.addEventListener('DOMContentLoaded', () => {
-  // Alpine ejecuta init() automáticamente si lo ponés como x-init, o podés llamarlo:
-});
 </script>
 @endpush

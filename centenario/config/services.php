@@ -13,6 +13,9 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
+    'google' => [
+        'drive_service' => storage_path('app/google/drive-service.json'),
+    ],
     
     'mapbox' => [
         'token' => env('MAPBOX_TOKEN'),
