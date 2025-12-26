@@ -2,57 +2,62 @@
 
 @push('styles')
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    html, body { height: 100%; }
+    main { padding:0!important; margin:0!important; }
+    footer { display:none!important; }
+  </style>
 @endpush
 
 @section('content')
-<div x-data="centenarioMap()" x-init="init()" class="h-[calc(100vh-64px)] flex">
+{{-- FULL HEIGHT real (sin depender del footer del layout) --}}
+<div x-data="centenarioMap" x-init="init()" class="h-screen flex bg-slate-950">
 
+  {{-- MAP WRAPPER --}}
+  <div class="relative flex-1">
+    {{-- MAPBOX (CONTENEDOR VACÍO) --}}
+    <div id="map" class="absolute inset-0"></div>
 
-  {{-- MAPA --}}
-  <div id="map" class="flex-1"></div>
+    {{-- overlay oscuro pro --}}
+    <div class="pointer-events-none absolute inset-0
+                bg-gradient-to-r from-black/25 via-transparent to-black/35
+                mix-blend-multiply"></div>
+
+    {{-- hint --}}
+    <div class="absolute top-3 left-3 z-10 pointer-events-auto">
+      <div class="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-100 text-xs shadow-lg">
+        Click en un punto para ver el detalle
+      </div>
+    </div>
+  </div>
 
   {{-- SIDEBAR --}}
-  <aside class="w-[420px] max-w-full border-l bg-white"
+  <aside class="w-[420px] max-w-full border-l border-slate-800 bg-slate-950/95 text-slate-100"
          :class="open ? 'block' : 'hidden md:block'">
-    <div class="p-4 border-b flex items-center justify-between">
-      <h2 class="text-lg font-bold" x-text="detalle?.titulo ?? 'Detalle'"></h2>
-      <button class="md:hidden px-3 py-1 rounded bg-gray-100" @click="open=false">Cerrar</button>
+    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+      <h2 class="text-lg font-bold truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
+      <button class="md:hidden px-3 py-1 rounded bg-slate-800" @click="open=false">Cerrar</button>
     </div>
 
-    <div class="p-4 space-y-3 overflow-auto h-[calc(100vh-64px-57px)]">
+    <div class="p-4 space-y-3 overflow-auto h-[calc(100vh-57px)]">
       <template x-if="loading">
-        <div class="text-sm text-gray-500">Cargando…</div>
+        <div class="text-sm text-slate-400">Cargando…</div>
       </template>
 
       <template x-if="!loading && detalle">
         <div class="space-y-3">
-          <div class="text-sm text-gray-500" x-text="detalle.categoria ?? ''"></div>
+          <div class="text-sm text-slate-400" x-text="detalle.categoria ?? ''"></div>
           <div class="text-sm whitespace-pre-line" x-text="detalle.descripcion ?? ''"></div>
-
-          <div class="text-sm text-gray-600" x-text="detalle.direccion ?? ''"></div>
+          <div class="text-sm text-slate-300" x-text="detalle.direccion ?? ''"></div>
 
           <div class="grid grid-cols-2 gap-2" x-show="(detalle.imagenes||[]).length">
             <template x-for="item in detalle.imagenes" :key="item.url">
-
-              <template x-if="isImageUrl(item.url, item.titulo)">
-                <figure class="rounded overflow-hidden border">
-                  <img :src="item.url" class="w-full h-28 object-cover">
-                  <figcaption class="p-2 text-xs text-gray-600" x-text="item.titulo ?? ''"></figcaption>
-                </figure>
-              </template>
-
-
-              <template x-if="!isImageUrl(item.url, item.titulo)">
-                <a :href="item.url" target="_blank"
-                  class="rounded border p-3 text-sm hover:bg-gray-50 flex items-center gap-2">
-                  <span>🔗</span>
-                  <span class="truncate" x-text="item.titulo ?? 'Abrir recurso'"></span>
-                </a>
-              </template>
-
+              <a :href="item.url" target="_blank"
+                 class="rounded border border-slate-800 p-3 hover:bg-slate-900 text-sm">
+                <div class="truncate" x-text="item.titulo ?? 'Abrir recurso'"></div>
+              </a>
             </template>
           </div>
-
         </div>
       </template>
     </div>
@@ -63,112 +68,77 @@
 
 @push('scripts')
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
 <script>
-function centenarioMap(){
-  return {
+document.addEventListener('alpine:init', () => {
+  Alpine.data('centenarioMap', () => ({
     map: null,
     open: true,
     loading: false,
     detalle: null,
 
-    // Convierte links de Drive a URL directa (sirve para <img> si el archivo es una imagen)
-    driveDirectUrl(url){
-      const u = String(url || '');
+    async init() {
+      // anti doble init
+      if (this.map) return;
 
-      // - https://drive.google.com/file/d/<ID>
-      // - https://drive.google.com/file/d/<ID>/view
-      const m1 = u.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/i);
-      if (m1?.[1]) return `https://drive.google.com/uc?export=view&id=${m1[1]}`;
+      const el = document.getElementById('map');
+      if (!el) { console.error('[centenario] no existe #map'); return; }
 
-      // - https://drive.google.com/open?id=<ID>
-      const m2 = u.match(/[?&]id=([^&]+)/i);
-      if (u.includes('drive.google.com') && m2?.[1]) {
-        return `https://drive.google.com/uc?export=view&id=${m2[1]}`;
-      }
+      // importante: contenedor vacío
+      el.innerHTML = '';
+      el.style.minHeight = '100vh';
 
-      return u;
-    },
-
-    // Detecta imagen por extensión (en URL o en titulo). NO por ser Drive.
-    isImageUrl(url, titulo){
-      const u = String(url || '').toLowerCase();
-      const t = String(titulo || '').toLowerCase();
-
-      const extOk = (s)=> (
-        s.endsWith('.jpg') || s.endsWith('.jpeg') || s.endsWith('.png') || s.endsWith('.webp') ||
-        s.endsWith('.gif') || s.endsWith('.jfif') || s.endsWith('.bmp') || s.endsWith('.tif') ||
-        s.endsWith('.tiff') || s.endsWith('.svg')
-      );
-
-      return extOk(u) || extOk(t);
-    },
-
-    async init(){
       mapboxgl.accessToken = @json(config('services.mapbox.token'));
+      if (!mapboxgl?.accessToken) {
+        console.error('[centenario] Falta MAPBOX_TOKEN');
+        return;
+      }
 
       this.map = new mapboxgl.Map({
         container: 'map',
-        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        style: 'mapbox://styles/mapbox/streets-v12',
         center: [-71.53, -41.9645],
         zoom: 15,
         maxZoom: 20,
       });
 
-      this.map.on('load', async () => {
-        try {
-          this.map.addLayer({
-            id: '3d-buildings',
-            source: 'composite',
-            'source-layer': 'building',
-            filter: ['==', 'extrude', 'true'],
-            type: 'fill-extrusion',
-            minzoom: 15,
-            paint: {
-              'fill-extrusion-color': '#aaa',
-              'fill-extrusion-height': ['get', 'height'],
-              'fill-extrusion-base': ['get', 'min_height'],
-              'fill-extrusion-opacity': 0.55
-            }
-          });
-        } catch (e) {
-          console.warn('No se pudo agregar 3D buildings:', e);
-        }
+      this.map.on('error', (e)=>console.error('[mapbox error]', e?.error || e));
 
+      this.map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
+      this.map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+
+      this.map.on('load', async () => {
         const geo = await fetch(@json(route('centenario.geojson'))).then(r=>r.json());
 
-        this.map.addSource('lugares', { type:'geojson', data: geo });
+        if (!this.map.getSource('lugares')) {
+          this.map.addSource('lugares', { type:'geojson', data: geo });
+        } else {
+          this.map.getSource('lugares').setData(geo);
+        }
 
-        this.map.addLayer({
-          id:'lugares-points',
-          type:'circle',
-          source:'lugares',
-          paint:{
-            'circle-radius': 7,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#fff',
-            'circle-color': ['coalesce', ['get','color'], '#2563eb']
-          }
-        });
-
-        this.map.on('click','lugares-points', (e) => {
-          const f = e.features[0];
-          const id = f.properties.id;
-          this.cargarDetalle(id);
-
-          this.map.easeTo({
-            center: f.geometry.coordinates,
-            zoom: Math.max(this.map.getZoom(), 14)
+        if (!this.map.getLayer('lugares-points')) {
+          this.map.addLayer({
+            id:'lugares-points',
+            type:'circle',
+            source:'lugares',
+            paint:{
+              'circle-radius': 7,
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#fff',
+              'circle-color': ['coalesce', ['get','color'], '#2563eb']
+            }
           });
-        });
+        }
 
-        this.map.on('mouseenter','lugares-points', ()=>this.map.getCanvas().style.cursor='pointer');
-        this.map.on('mouseleave','lugares-points', ()=>this.map.getCanvas().style.cursor='');
+        // por si el layout aún no acomodó tamaños
+        setTimeout(()=>{ try{ this.map.resize(); }catch(e){} }, 200);
       });
+
+      window.addEventListener('resize', ()=>{ try{ this.map.resize(); }catch(e){} });
     },
 
     async cargarDetalle(id){
       this.loading = true;
-      this.open = true;
       try{
         const url = @json(route('centenario.show', ['lugar'=>'__ID__'])).replace('__ID__', id);
         this.detalle = await fetch(url).then(r=>r.json());
@@ -176,8 +146,7 @@ function centenarioMap(){
         this.loading = false;
       }
     },
-  }
-}
-
+  }));
+});
 </script>
 @endpush
