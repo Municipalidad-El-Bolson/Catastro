@@ -78,64 +78,150 @@ document.addEventListener('alpine:init', () => {
     detalle: null,
 
     async init() {
-      // anti doble init
-      if (this.map) return;
+    if (this.map) return;
 
-      const el = document.getElementById('map');
-      if (!el) { console.error('[centenario] no existe #map'); return; }
+    const el = document.getElementById('map');
+    if (!el) return;
+    el.innerHTML = '';
+    el.style.minHeight = '100vh';
 
-      // importante: contenedor vacío
-      el.innerHTML = '';
-      el.style.minHeight = '100vh';
+    mapboxgl.accessToken = @json(config('services.mapbox.token'));
+    if (!mapboxgl?.accessToken) return;
 
-      mapboxgl.accessToken = @json(config('services.mapbox.token'));
-      if (!mapboxgl?.accessToken) {
-        console.error('[centenario] Falta MAPBOX_TOKEN');
-        return;
-      }
+    this.map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: [-71.53, -41.9645],
+      zoom: 15.2,
+      maxZoom: 20,
+      pitch: 55,   // 👈 “realidad” (inclinación)
+      bearing: -15 // 👈 leve giro para efecto pro
+    });
 
-      this.map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [-71.53, -41.9645],
-        zoom: 15,
-        maxZoom: 20,
-      });
+    this.map.on('error', (e)=>console.error('[mapbox error]', e?.error || e));
 
-      this.map.on('error', (e)=>console.error('[mapbox error]', e?.error || e));
+    this.map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
+    this.map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
-      this.map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
-      this.map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-
-      this.map.on('load', async () => {
-        const geo = await fetch(@json(route('centenario.geojson'))).then(r=>r.json());
-
-        if (!this.map.getSource('lugares')) {
-          this.map.addSource('lugares', { type:'geojson', data: geo });
-        } else {
-          this.map.getSource('lugares').setData(geo);
+    this.map.on('load', async () => {
+      // ✅ Terreno 3D (DEM)
+      try {
+        if (!this.map.getSource('mapbox-dem')) {
+          this.map.addSource('mapbox-dem', {
+            type: 'raster-dem',
+            url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+            tileSize: 512,
+            maxzoom: 14
+          });
         }
+        this.map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.35 });
 
-        if (!this.map.getLayer('lugares-points')) {
+        // Cielo (se nota mucho cuando hay pitch)
+        if (!this.map.getLayer('sky')) {
           this.map.addLayer({
-            id:'lugares-points',
-            type:'circle',
-            source:'lugares',
-            paint:{
-              'circle-radius': 7,
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#fff',
-              'circle-color': ['coalesce', ['get','color'], '#2563eb']
+            id: 'sky',
+            type: 'sky',
+            paint: {
+              'sky-type': 'atmosphere',
+              'sky-atmosphere-sun': [0.0, 0.0],
+              'sky-atmosphere-sun-intensity': 10
             }
           });
         }
+      } catch (e) {
+        console.warn('No se pudo habilitar terreno/sky:', e);
+      }
 
-        // por si el layout aún no acomodó tamaños
-        setTimeout(()=>{ try{ this.map.resize(); }catch(e){} }, 200);
+      // ✅ Buildings 3D (si existen en el estilo)
+      try {
+        if (!this.map.getLayer('3d-buildings')) {
+          this.map.addLayer(
+            {
+              id: '3d-buildings',
+              source: 'composite',
+              'source-layer': 'building',
+              filter: ['==', 'extrude', 'true'],
+              type: 'fill-extrusion',
+              minzoom: 15,
+              paint: {
+                'fill-extrusion-color': '#a1a1aa',
+                'fill-extrusion-height': ['get', 'height'],
+                'fill-extrusion-base': ['get', 'min_height'],
+                'fill-extrusion-opacity': 0.6
+              }
+            }
+          );
+        }
+      } catch (e) {
+        console.warn('No se pudo agregar 3D buildings:', e);
+      }
+
+      // ✅ Cargar puntos
+      const geo = await fetch(@json(route('centenario.geojson'))).then(r=>r.json());
+
+      if (!this.map.getSource('lugares')) {
+        this.map.addSource('lugares', { type:'geojson', data: geo });
+      } else {
+        this.map.getSource('lugares').setData(geo);
+      }
+
+      if (!this.map.getLayer('lugares-points')) {
+        this.map.addLayer({
+          id:'lugares-points',
+          type:'circle',
+          source:'lugares',
+          paint:{
+            'circle-radius': 7,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#fff',
+            'circle-color': ['coalesce', ['get','color'], '#2563eb']
+          }
+        });
+      }
+
+      if (!this.map.getLayer('lugares-selected')) {
+        this.map.addLayer({
+          id:'lugares-selected',
+          type:'circle',
+          source:'lugares',
+          filter: ['==', ['get','id'], -1],
+          paint:{
+            'circle-radius': 12,
+            'circle-color': '#fff',
+            'circle-opacity': 0.25
+          }
+        });
+      }
+
+
+      // ✅ CLICK EN PUNTO → cargar detalle + centrar
+      this.map.on('click', 'lugares-points', (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+
+        const id = f.properties?.id;
+        this.cargarDetalle(id);
+        this.open = true;
+
+        const coords = f.geometry.coordinates;
+        this.map.easeTo({
+          center: coords,
+          zoom: Math.max(this.map.getZoom(), 16),
+          duration: 650
+        });
       });
 
-      window.addEventListener('resize', ()=>{ try{ this.map.resize(); }catch(e){} });
-    },
+      this.map.on('mouseenter','lugares-points', ()=>this.map.getCanvas().style.cursor='pointer');
+      this.map.on('mouseleave','lugares-points', ()=>this.map.getCanvas().style.cursor='');
+      this.map.setFilter('lugares-selected', ['==', ['get','id'], Number(id)]);
+
+      // evita mapa “blanco” por layout
+      setTimeout(()=>{ try{ this.map.resize(); }catch(e){} }, 200);
+    });
+
+    window.addEventListener('resize', ()=>{ try{ this.map.resize(); }catch(e){} });
+  },
+
 
     async cargarDetalle(id){
       this.loading = true;
