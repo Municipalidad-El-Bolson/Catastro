@@ -31,37 +31,174 @@
     </div>
   </div>
 
-  {{-- SIDEBAR --}}
-  <aside class="w-[420px] max-w-full border-l border-slate-800 bg-slate-950/95 text-slate-100"
-         :class="open ? 'block' : 'hidden md:block'">
-    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+{{-- SIDEBAR --}}
+<aside
+  class="w-[420px] max-w-full border-l border-slate-800 bg-slate-950/95 text-slate-100"
+  :class="open ? 'block' : 'hidden md:block'"
+>
+  {{-- Header --}}
+  <div class="p-4 border-b border-slate-800 flex items-center gap-2 justify-between">
+    <div class="min-w-0">
+      <div class="text-xs text-slate-400" x-text="detalle?.categoria ?? ''"></div>
       <h2 class="text-lg font-bold truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button
+        class="hidden md:inline-flex px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xs"
+        @click="collapsed = !collapsed"
+        x-text="collapsed ? 'Expandir' : 'Minimizar'"
+      ></button>
+
       <button class="md:hidden px-3 py-1 rounded bg-slate-800" @click="open=false">Cerrar</button>
     </div>
+  </div>
 
-    <div class="p-4 space-y-3 overflow-auto h-[calc(100vh-57px)]">
-      <template x-if="loading">
-        <div class="text-sm text-slate-400">Cargando…</div>
-      </template>
+  {{-- Body --}}
+  <div class="p-4 overflow-auto h-[calc(100vh-57px)]">
+    <template x-if="loading">
+      <div class="text-sm text-slate-400">Cargando…</div>
+    </template>
 
-      <template x-if="!loading && detalle">
-        <div class="space-y-3">
-          <div class="text-sm text-slate-400" x-text="detalle.categoria ?? ''"></div>
-          <div class="text-sm whitespace-pre-line" x-text="detalle.descripcion ?? ''"></div>
-          <div class="text-sm text-slate-300" x-text="detalle.direccion ?? ''"></div>
+    <template x-if="!loading && detalle">
+      <div class="space-y-4">
 
-          <div class="grid grid-cols-2 gap-2" x-show="(detalle.imagenes||[]).length">
-            <template x-for="item in detalle.imagenes" :key="item.url">
-              <a :href="item.url" target="_blank"
-                 class="rounded border border-slate-800 p-3 hover:bg-slate-900 text-sm">
-                <div class="truncate" x-text="item.titulo ?? 'Abrir recurso'"></div>
-              </a>
+        {{-- Tarjeta “patrimonial” --}}
+        <div class="rounded-2xl overflow-hidden border border-[#e6e0cf] bg-[#faf7f0] text-[#2b2b2b] shadow-xl">
+          {{-- Preview grande --}}
+          <div class="relative" x-show="!collapsed">
+
+            {{-- IMAGE --}}
+            <template x-if="primaryAsset() && primaryAsset().kind === 'image'">
+              <img
+                class="w-full h-64 object-cover"
+                :src="mediaUrl(primaryAsset().fileId)"
+                :alt="primaryAsset().titulo ?? detalle.titulo"
+              >
             </template>
+
+            {{-- PDF --}}
+            <template x-if="primaryAsset() && primaryAsset().kind === 'pdf'">
+              <iframe
+                class="w-full h-64 bg-white"
+                :src="mediaUrl(primaryAsset().fileId)"
+              ></iframe>
+            </template>
+
+            {{-- AUDIO --}}
+            <template x-if="primaryAsset() && primaryAsset().kind === 'audio'">
+              <div class="p-4">
+                <div class="text-sm font-semibold text-[#6f6a3a] mb-2">
+                  Audio
+                </div>
+                <audio controls class="w-full">
+                  <source :src="mediaUrl(primaryAsset().fileId)">
+                </audio>
+              </div>
+            </template>
+
+            {{-- Si no hay asset --}}
+            <template x-if="!primaryAsset()">
+              <div class="p-6 text-center text-sm text-slate-600">
+                Sin multimedia asociada
+              </div>
+            </template>
+
+            {{-- Botón agrandar --}}
+            <button
+              class="absolute top-3 right-3 px-3 py-1 rounded-xl bg-black/55 text-white text-xs backdrop-blur border border-white/20 hover:bg-black/65"
+              x-show="primaryAsset() && (primaryAsset().kind === 'image' || primaryAsset().kind === 'pdf')"
+              @click="openPreview(primaryAsset())"
+            >
+              Ampliar
+            </button>
+          </div>
+
+          {{-- Contenido --}}
+          <div class="p-5 text-center space-y-3">
+            <div class="text-sm text-[#8a865f]" x-text="detalle.localidad ?? ''"></div>
+
+            <div class="text-[22px] leading-snug font-semibold text-[#6f6a3a]"
+                 x-text="detalle.titulo"></div>
+
+            <div class="text-sm text-[#4b4b4b] whitespace-pre-line"
+                 x-text="detalle.descripcion ?? ''"></div>
+
+            <div class="text-sm text-[#6b6b6b]" x-text="detalle.direccion ?? ''"></div>
+            <a
+              :href="googleMapsUrl()"
+              target="_blank"
+              rel="noopener"
+              class="mt-2 inline-flex w-full items-center justify-center gap-2
+                    rounded-xl bg-[#6f6a3a] px-4 py-2
+                    text-white font-semibold
+                    hover:bg-[#5e5a30]"
+            >
+              <span>Cómo llegar</span>
+              <span>📍</span>
+            </a>
           </div>
         </div>
-      </template>
+
+        {{-- Adjuntos --}}
+        <div class="space-y-2" x-show="(detalle.imagenes||[]).length">
+          <div class="text-xs text-slate-400 uppercase tracking-wide">Archivos</div>
+
+          <template x-for="item in detalle.imagenes" :key="item.fileId">
+            <button
+              type="button"
+              class="w-full text-left rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 px-3 py-2 flex items-center gap-3"
+              @click="setPrimary(item)"
+            >
+              <div class="w-9 h-9 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-950 text-slate-200 text-sm">
+                <span x-show="item.kind==='image'">🖼️</span>
+                <span x-show="item.kind==='pdf'">📄</span>
+                <span x-show="item.kind==='audio'">🔊</span>
+                <span x-show="!item.kind">🔗</span>
+              </div>
+
+              <div class="min-w-0">
+                <div class="text-sm text-slate-100 truncate" x-text="item.titulo ?? 'Archivo'"></div>
+                <div class="text-xs text-slate-400" x-text="item.kind ?? ''"></div>
+              </div>
+
+              <div class="ml-auto text-xs text-slate-400">Ver</div>
+            </button>
+          </template>
+        </div>
+
+      </div>
+    </template>
+  </div>
+
+  {{-- Modal preview (imagen/pdf) --}}
+  <div
+    class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4"
+    x-show="previewOpen"
+    x-transition.opacity
+    @keydown.escape.window="previewOpen=false"
+    style="display:none;"
+  >
+    <div class="w-full max-w-5xl rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl">
+      <div class="p-3 flex items-center justify-between border-b border-slate-800">
+        <div class="text-sm text-slate-100 truncate" x-text="previewTitle"></div>
+        <button class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm" @click="previewOpen=false">
+          Cerrar
+        </button>
+      </div>
+
+      <div class="bg-black">
+        <template x-if="previewKind === 'image'">
+          <img class="w-full max-h-[80vh] object-contain" :src="previewUrl" />
+        </template>
+
+        <template x-if="previewKind === 'pdf'">
+          <iframe class="w-full h-[80vh] bg-white" :src="previewUrl"></iframe>
+        </template>
+      </div>
     </div>
-  </aside>
+  </div>
+</aside>
 
 </div>
 @endsection
@@ -72,10 +209,76 @@
 <script>
 document.addEventListener('alpine:init', () => {
   Alpine.data('centenarioMap', () => ({
+    collapsed: false,
+
+    previewOpen: false,
+    previewUrl: '',
+    previewTitle: '',
+    previewKind: '',
+
+    _mediaPrimary: null,
+
+    mediaUrl(fileId){
+      return `/media/drive/${encodeURIComponent(fileId)}`;
+    },
+
+    googleMapsUrl(){
+      if (!this.detalle) return '#';
+
+      const lat = Number(this.detalle.lat);
+      const lng = Number(this.detalle.lng);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '#';
+
+      return `https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=${lat},${lng}&travelmode=walking`;
+    },
+
+    primaryAsset(){
+      const items = this.detalle?.imagenes || [];
+      if (!items.length) return null;
+
+      // si el usuario seleccionó uno, usar ese
+      if (this._mediaPrimary) return this._mediaPrimary;
+
+      // elegir por prioridad
+      return items.find(i => i.kind === 'image')
+          || items.find(i => i.kind === 'pdf')
+          || items.find(i => i.kind === 'audio')
+          || items[0];
+    },
+
+    setPrimary(item){
+      this._mediaPrimary = item;
+    },
+
+    openPreview(item){
+      if (!item?.fileId) return;
+      this.previewKind = item.kind;
+      this.previewTitle = item.titulo || 'Vista previa';
+      this.previewUrl = this.mediaUrl(item.fileId);
+      this.previewOpen = true;
+    },
+
+    flyToDetalle(){
+      if (!this.map || !this.detalle) return;
+      const lng = Number(this.detalle.lng);
+      const lat = Number(this.detalle.lat);
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+
+      this.map.easeTo({
+        center: [lng, lat],
+        zoom: Math.max(this.map.getZoom(), 16),
+        pitch: 55,
+        bearing: -15,
+        duration: 650
+      });
+    },
+
     map: null,
     open: true,
     loading: false,
     detalle: null,
+
 
     async init() {
     if (this.map) return;
@@ -225,6 +428,7 @@ document.addEventListener('alpine:init', () => {
 
     async cargarDetalle(id){
       this.loading = true;
+      this._mediaPrimary = null;
       try{
         const url = @json(route('centenario.show', ['lugar'=>'__ID__'])).replace('__ID__', id);
         this.detalle = await fetch(url).then(r=>r.json());

@@ -4,17 +4,16 @@ use App\Http\Controllers\LugarController;
 use App\Services\DriveService;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/media/drive/file/{fileId}', function ($fileId) {
-    $drive = DriveService::client();
+Route::get('/media/drive/{fileId}', function ($fileId) {
+    $drive = \App\Services\DriveService::client();
 
-    // MIME real del archivo (pdf, jpeg, etc.)
-    $file = $drive->files->get($fileId, ['fields' => 'mimeType,name']);
-    $stream = $drive->files->get($fileId, ['alt' => 'media']);
+    $file = $drive->files->get($fileId, ['fields' => 'mimeType']);
+    $response = $drive->files->get($fileId, ['alt' => 'media']);
 
-    return response($stream->getBody())
-        ->header('Content-Type', $file->mimeType)
-        ->header('Content-Disposition', 'inline; filename="'.$file->name.'"');
-})->name('drive.file');
+    return response($response->getBody())
+        ->header('Content-Type', $file->getMimeType())
+        ->header('Cache-Control', 'public, max-age=86400');
+});
 
 
 Route::get('/', fn() => redirect()->route('centenario.index'));

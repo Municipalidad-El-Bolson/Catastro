@@ -37,26 +37,55 @@ class LugarController extends Controller
         return response()->json(['type'=>'FeatureCollection','features'=>$features]);
     }
 
+    private function tituloLindo(?string $texto): ?string
+    {
+        if (!$texto) return null;
+
+        // quitar extensión
+        $t = preg_replace('/\.(jpg|jpeg|png|gif|webp|jfif|bmp|tiff|pdf|mp3|wav)$/i', '', $texto);
+
+        // quitar código inicial tipo 02110401020122-
+        $t = preg_replace('/^\d{6,}-/','', $t);
+
+        // limpiar guiones/underscores
+        $t = str_replace(['_', '-'], ' ', $t);
+
+        // normalizar espacios
+        $t = preg_replace('/\s+/', ' ', $t);
+
+        return trim($t);
+    }
+
     public function show(Lugar $lugar)
     {
         $lugar->load(['categoria','imagenes']);
+
+        // 👉 título humano
+        $titulo = $this->tituloLindo($lugar->descripcion)
+            ?? $this->tituloLindo($lugar->titulo)
+            ?? 'Sin título';
+
+        // 👉 descripción humana (si no hay, usar el título)
+        $descripcion = $this->tituloLindo($lugar->descripcion)
+                    ?? $this->tituloLindo($lugar->titulo);
+
         return response()->json([
             'id' => $lugar->id,
-            'titulo' => $lugar->titulo,
-            'descripcion' => $lugar->descripcion,
+            'titulo' => $titulo,
+            'descripcion' => $descripcion,
             'direccion' => $lugar->direccion,
             'localidad' => $lugar->localidad,
             'lat' => (float)$lugar->lat,
             'lng' => (float)$lugar->lng,
             'categoria' => $lugar->categoria?->nombre,
-            'imagenes' => $lugar->imagenes->map(fn($img)=>[
-                'kind'  => $img->kind, // file | folder
-                'url'   => $img->kind === 'file' && $img->drive_file_id
-                    ? route('drive.file', $img->drive_file_id)
-                    : ($img->path ?? null),
-                'titulo' => $img->titulo ?: $lugar->titulo,
-            ]),
 
+            'imagenes' => $lugar->imagenes->map(fn($img)=>[
+                'fileId' => $img->drive_file_id,
+                'kind'   => $img->kind,
+                'titulo' => $this->tituloLindo($img->titulo ?? $lugar->descripcion ?? $lugar->titulo),
+            ]),
         ]);
     }
+
+
 }
