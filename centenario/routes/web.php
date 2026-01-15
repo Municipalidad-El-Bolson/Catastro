@@ -15,11 +15,9 @@ Route::get('/media/drive/{fileId}', function ($fileId) {
         ->header('Cache-Control', 'public, max-age=86400');
 });
 
+Route::prefix('centenario')->name('centenario.')->group(function () {
+    Route::view('/', 'centenario.index')->name('index');
+    Route::get('/geojson', [LugarController::class, 'geojson'])->name('geojson');
+    Route::get('/{lugar}', [LugarController::class, 'show'])->name('show');
+});
 
-Route::get('/', fn() => redirect()->route('centenario.index'));
-
-Route::get('/centenario', [LugarController::class, 'index'])->name('centenario.index');
-
-// datos
-Route::get('/centenario/geojson', [LugarController::class, 'geojson'])->name('centenario.geojson');
-Route::get('/centenario/lugares/{lugar}', [LugarController::class, 'show'])->name('centenario.show');
