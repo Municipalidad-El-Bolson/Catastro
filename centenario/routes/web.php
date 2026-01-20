@@ -15,6 +15,8 @@ Route::get('/media/drive/{fileId}', function ($fileId) {
         ->header('Cache-Control', 'public, max-age=86400');
 });
 
+Route::get('/', fn () => redirect()->route('centenario.index'));
+
 Route::prefix('centenario')->name('centenario.')->group(function () {
     Route::view('/', 'centenario.index')->name('index');
     Route::get('/geojson', [LugarController::class, 'geojson'])->name('geojson');

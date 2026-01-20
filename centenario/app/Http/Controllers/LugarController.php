@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Services\Centenario\ExcelLugaresService;
 
 class LugarController extends Controller
@@ -13,28 +12,28 @@ class LugarController extends Controller
 
         return response()->json([
             'type' => 'FeatureCollection',
-            'features' => collect($lugares)->map(fn ($l) => [
+            'features' => collect($lugares)->map(fn($l) => [
                 'type' => 'Feature',
                 'geometry' => [
                     'type' => 'Point',
-                    'coordinates' => [(float) $l['lng'], (float) $l['lat']],
+                    'coordinates' => [(float)$l['lng'], (float)$l['lat']],
                 ],
                 'properties' => [
-                    'id'        => $l['id'],
+                    'id'        => (string)$l['codigo'],     // 👈 clave estable
+                    'codigo'    => (string)$l['codigo'],
                     'titulo'    => $l['titulo'] ?? '',
                     'categoria' => $l['categoria'] ?? '',
-                    'color'     => '#2563eb',
+                    'color'     => $l['color'] ?? '#2563eb',
                 ],
             ])->values()->all(),
         ]);
     }
 
-    public function show($id, ExcelLugaresService $service)
+    public function show(string $codigo, ExcelLugaresService $service)
     {
-        $lugar = $service->findById((int) $id);
+        $lugar = $service->findByCodigo($codigo);
         abort_if(!$lugar, 404);
 
         return response()->json($lugar);
     }
 }
-
