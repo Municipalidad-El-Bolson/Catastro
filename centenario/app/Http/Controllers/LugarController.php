@@ -19,21 +19,21 @@ class LugarController extends Controller
                     'coordinates' => [(float)$l['lng'], (float)$l['lat']],
                 ],
                 'properties' => [
-                    'id'        => (string)$l['codigo'],     // 👈 clave estable
-                    'codigo'    => (string)$l['codigo'],
+                    'id'        => (string)($l['codigo'] ?? ''),
+                    'codigo'    => (string)($l['codigo'] ?? ''),
                     'titulo'    => $l['titulo'] ?? '',
                     'categoria' => $l['categoria'] ?? '',
+                    'icono'     => $l['icono'] ?? '',
                     'color'     => $l['color'] ?? '#2563eb',
                 ],
             ])->values()->all(),
         ]);
     }
 
-    public function show(string $codigo, ExcelLugaresService $service)
+    public function show($codigo, ExcelLugaresService $service)
     {
-        $lugar = $service->findByCodigo($codigo);
+        $lugar = $service->findByCodigo((string)$codigo);
         abort_if(!$lugar, 404);
-
         return response()->json($lugar);
     }
 }

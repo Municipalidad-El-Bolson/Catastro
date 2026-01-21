@@ -97,9 +97,47 @@
         </div>
       </template>
     </div>
-
-    {{-- modal preview igual que antes si querés --}}
   </aside>
+  {{-- TIMELINE --}}
+  <div class="space-y-2" x-show="timelineItems().length">
+    <div class="text-xs text-slate-400 uppercase tracking-wide">Timeline</div>
+
+    <div class="rounded-2xl border border-slate-800 bg-slate-900/30 p-3">
+      <!-- Nodos -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-2">
+        <template x-for="(it, idx) in timelineItems()" :key="it._fileId + '_' + idx">
+          <div class="flex items-center gap-2 shrink-0">
+            <!-- Nodo -->
+            <button
+              type="button"
+              class="w-8 h-8 rounded-full border border-slate-700 bg-slate-950 text-slate-100 text-xs font-semibold
+                    hover:bg-slate-900"
+              @click="openPreview(it)"
+              :title="timelineLabel(it, idx)"
+            >
+              <span x-text="idx + 1"></span>
+            </button>
+
+            <!-- Conector (no en el último) -->
+            <div
+              class="h-[2px] w-10 bg-slate-700"
+              x-show="idx !== timelineItems().length - 1"
+            ></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Texto debajo -->
+      <div class="mt-2 space-y-2">
+        <template x-for="(it, idx) in timelineItems()" :key="'lbl_' + (it._fileId || idx)">
+          <div class="text-sm leading-snug">
+            <span class="text-slate-300 font-semibold" x-text="'(' + (idx+1) + ') '"></span>
+            <span class="text-slate-200" x-text="timelineLabel(it, idx)"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
 
 </div>
 @endsection
@@ -123,6 +161,30 @@ document.addEventListener('alpine:init', () => {
     previewKind: '',
     _mediaPrimary: null,
     _clickBound: false,
+
+    timelineItems() {
+    // usa detalle.imagenes (ya viene mezclado Import + Imagenes)
+    const items = (this.detalle?.imagenes || [])
+      .filter(i => String(i?.kind || '').toLowerCase() === 'image') // o sacá esto si querés incluir pdf/audio
+      .map(i => ({
+        ...i,
+        _fileId: this.fileIdOf(i),
+        _orden: Number(i?.orden ?? 0),
+        _nota: (i?.nota ?? '').toString().trim(),
+      }))
+      .sort((a,b) => (a._orden - b._orden));
+
+    return items;
+  },
+
+  timelineLabel(item, idx) {
+    // prioridad: nota; fallback: titulo; fallback: "Paso N"
+    const n = (item?._nota || '').trim();
+    if (n) return n;
+    const t = (item?.titulo || '').toString().trim();
+    if (t) return t;
+    return `Paso ${idx + 1}`;
+  },
 
 
     initWatchers() {
