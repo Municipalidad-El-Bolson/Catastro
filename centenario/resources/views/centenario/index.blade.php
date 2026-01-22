@@ -10,7 +10,14 @@
     .map-shell { position: relative; height: 100%; }
     .mapboxgl-control-container { pointer-events: none; }
     .mapboxgl-control-container .mapboxgl-ctrl { pointer-events: auto; }
-    .map-shell { height: 100vh; }
+    .map-shell {
+      position: relative;
+      height: 100%;
+      min-width: 0;   /* importantísimo para flex */
+    }
+
+
+
 
     /* el mapa siempre ocupa todo y queda "abajo" */
     #map { position:absolute; inset:0; width:100%; height:100%; z-index: 1; }
@@ -28,38 +35,40 @@
 
     /* Timeline: SIEMPRE centrada abajo dentro del mapa */
     .timeline-overlay{
-      position:absolute;
-      left:12.5%;
-      right:12.5%;
-      bottom:12px;
-      z-index:9999;
-      pointer-events:auto;
+      position: absolute;
+      left: 1.5rem;
+      right: 1.5rem;
+      bottom: 1rem;
+      z-index: 40;
+      pointer-events: auto;
     }
 
-  .timeline-card{
-    width:100%;
-    max-width:1100px;
-    margin:0 auto;
-  }
 
-  /* 6 items MISMO ancho siempre */
-  .timeline-row{
-    display:flex;
-    align-items:flex-start;
-    gap:12px;
-  }
 
-  .timeline-item{
-    flex: 1 1 0;     /* <- todos iguales */
-    min-width: 0;    /* <- permite truncate */
-    text-align:center;
-  }
+    .timeline-card{
+      width:100%;
+      max-width:1100px;
+      margin:0 auto;
+    }
 
-  /* placeholder para completar 6 sin deformar */
-  .timeline-item.placeholder{
-    opacity:0;
-    pointer-events:none;
-  }
+    /* 6 items MISMO ancho siempre */
+    .timeline-row{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+    }
+
+    .timeline-item{
+      flex: 1 1 0;     /* <- todos iguales */
+      min-width: 0;    /* <- permite truncate */
+      text-align:center;
+    }
+
+    /* placeholder para completar 6 sin deformar */
+    .timeline-item.placeholder{
+      opacity:0;
+      pointer-events:none;
+    }
 
 
   </style>
@@ -83,98 +92,84 @@
         Click en un punto o en la timeline para ver el detalle
       </div>
     </div>
-  {{-- TIMELINE --}}
+
   <div class="timeline-overlay"
-      x-show="timelineLugares.length"
-      x-transition.opacity
-      style="display:none;">
+     x-show="timelineLugares.length"
+     x-transition.opacity
+     style="display:none;">
 
-    <div class="timeline-card rounded-2xl border border-slate-800 bg-slate-950/85 backdrop-blur shadow-xl px-4 py-3">
-      <div class="flex items-center gap-3">
+  <div class="mx-auto w-full max-w-6xl
+              rounded-2xl border border-slate-800
+              bg-slate-950/85 backdrop-blur shadow-xl
+              px-4 py-3">
 
-        <!-- Flecha izquierda -->
-        <button type="button"
-                class="shrink-0 w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
-                      hover:bg-slate-900 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                @click="timelinePrevItem()"
-                :disabled="!timelineLugares.length || selectedIndex() <= 0"
-                title="Anterior">
-          &lt;
-        </button>
+    <div class="flex items-center gap-3">
 
-        <!-- Centro -->
-        <div class="relative flex-1 min-w-0">
+      <!-- Flecha izquierda -->
+      <button type="button"
+              class="shrink-0 w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
+                     hover:bg-slate-900 transition disabled:opacity-30"
+              @click="timelinePrevItem()">
+        &lt;
+      </button>
 
-          <!-- Línea conectora -->
-          <div class="absolute left-2 right-2 top-[18px] h-[2px] bg-slate-700/80"></div>
+      <!-- Timeline -->
+      <div class="relative flex-1 min-w-0">
 
-          <!-- 6 slots iguales -->
-          <div class="timeline-row relative">
-            <template x-for="(slot, localIdx) in timelineSlots()" :key="'slot_' + localIdx">
+        <!-- línea -->
+        <div class="absolute left-2 right-2 top-[18px] h-[2px] bg-slate-700/80"></div>
 
-              <div class="timeline-item" :class="!slot ? 'placeholder' : ''">
-                <template x-if="slot">
-                  <button type="button"
-                          class="w-full min-w-0"
-                          @click="selectByCodigo(slot.codigo, true)"
-                          :title="slot.titulo">
-
-                    <!-- círculo -->
-                    <div class="mx-auto w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
-                                flex items-center justify-center text-[12px] font-semibold"
-                        :class="(detalle?.codigo && String(detalle.codigo) === String(slot.codigo))
-                                  ? 'ring-2 ring-emerald-500/70 border-emerald-400/40'
-                                  : ''">
-                      <span x-text="timelinePage * timelinePageSize + localIdx + 1"></span>
-                    </div>
-
-                    <!-- título (responsive, no rompe el layout) -->
-                    <div class="mt-2 text-[12px] leading-snug text-slate-100 line-clamp-2">
-                      <span x-text="slot.titulo"></span>
-                    </div>
-                  </button>
-                </template>
-              </div>
-
-            </template>
-          </div>
-
-          <!-- indicador -->
-          <div class="mt-2 text-[11px] text-slate-400 text-center tabular-nums"
-              x-show="timelineTotalPages() > 1">
-            <span x-text="(timelinePage + 1) + ' / ' + timelineTotalPages()"></span>
-          </div>
-
+        <!-- 6 items iguales -->
+        <div class="flex gap-3">
+          <template x-for="slot in timelineSlots()" :key="slot?.codigo ?? Math.random()">
+            <div class="flex-1 min-w-0 text-center">
+              <template x-if="slot">
+                <button @click="selectByCodigo(slot.codigo, true)" class="w-full">
+                  <div class="mx-auto w-10 h-10 rounded-full border border-slate-700 bg-slate-950
+                              text-slate-100 flex items-center justify-center text-xs font-semibold">
+                    <span x-text="slot.codigo"></span>
+                  </div>
+                  <div class="mt-2 text-xs text-slate-100 line-clamp-2">
+                    <span x-text="slot.titulo"></span>
+                  </div>
+                </button>
+              </template>
+            </div>
+          </template>
         </div>
 
-        <!-- Flecha derecha -->
-        <button type="button"
-                class="shrink-0 w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
-                      hover:bg-slate-900 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                @click="timelineNextItem()"
-                :disabled="!timelineLugares.length || (selectedIndex() >= timelineLugares.length - 1 && selectedIndex() !== -1)"
-                title="Siguiente">
-          &gt;
-        </button>
-
       </div>
+
+      <!-- Flecha derecha -->
+      <button type="button"
+              class="shrink-0 w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
+                     hover:bg-slate-900 transition disabled:opacity-30"
+              @click="timelineNextItem()">
+        &gt;
+      </button>
+
     </div>
   </div>
+</div>
 
   {{-- SIDEBAR --}}
   <aside
-    class="shrink-0 relative border-l border-slate-800 bg-slate-950/95 text-slate-100 transition-all duration-300"
+    class="shrink-0 relative z-50 border-l border-slate-800 bg-slate-950/95 text-slate-100 transition-all duration-300"
     :class="sidebarMin ? 'w-[72px]' : 'w-[420px]'"
   >
+
     {{-- Toggle --}}
     <button
-      class="absolute -left-4 top-4 z-40 w-8 h-8 rounded-2xl border border-slate-800 bg-slate-950/90 backdrop-blur shadow
-             flex items-center justify-center hover:bg-slate-900"
+      class="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2
+            z-[80] w-8 h-8 rounded-full border border-slate-800
+            bg-slate-950/90 backdrop-blur shadow
+            flex items-center justify-center hover:bg-slate-900"
       @click="sidebarMin = !sidebarMin"
-      :title="sidebarMin ? 'Expandir panel' : 'Minimizar panel'"
     >
       <span x-text="sidebarMin ? '›' : '‹'"></span>
     </button>
+
+
 
     {{-- Header --}}
     <div class="p-4 border-b border-slate-800" x-show="!sidebarMin">
@@ -319,14 +314,12 @@ document.addEventListener('alpine:init', () => {
     timelinePageSize: 6,
 
     timelineSlots() {
-      const items = this.timelinePageItems(); // los reales
+      const items = this.timelinePageItems();
       const slots = items.slice(0, this.timelinePageSize);
-
-      // rellenamos con null hasta 6 para mantener tamaños
       while (slots.length < this.timelinePageSize) slots.push(null);
-
       return slots;
     },
+
 
 
     timelineTotalPages() {
