@@ -1,21 +1,164 @@
 @extends('layouts.app')
-
 @push('styles')
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <style>
     html, body { height: 100%; }
     main { padding:0!important; margin:0!important; }
     footer { display:none!important; }
-    #map { width: 100%; height: 100%; }
+
+    /* el wrapper del mapa es el stacking-context */
+    .map-shell { position: relative; height: 100%; }
+    .mapboxgl-control-container { pointer-events: none; }
+    .mapboxgl-control-container .mapboxgl-ctrl { pointer-events: auto; }
+    .map-shell { height: 100vh; }
+
+    /* el mapa siempre ocupa todo y queda "abajo" */
+    #map { position:absolute; inset:0; width:100%; height:100%; z-index: 1; }
+
+    /* forzamos a mapbox para que respete z-index */
+    .mapboxgl-canvas-container,
+    .mapboxgl-control-container {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+    }
+
+    /* overlays arriba SIEMPRE */
+    .map-overlay { position:absolute; z-index: 50; }
+
+    /* Timeline: SIEMPRE centrada abajo dentro del mapa */
+    .timeline-overlay{
+      position:absolute;
+      left:12.5%;
+      right:12.5%;
+      bottom:12px;
+      z-index:9999;
+      pointer-events:auto;
+    }
+
+  .timeline-card{
+    width:100%;
+    max-width:1100px;
+    margin:0 auto;
+  }
+
+  /* 6 items MISMO ancho siempre */
+  .timeline-row{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+  }
+
+  .timeline-item{
+    flex: 1 1 0;     /* <- todos iguales */
+    min-width: 0;    /* <- permite truncate */
+    text-align:center;
+  }
+
+  /* placeholder para completar 6 sin deformar */
+  .timeline-item.placeholder{
+    opacity:0;
+    pointer-events:none;
+  }
+
 
   </style>
 @endpush
 
+
 @section('content')
 <div x-data="centenarioMap" x-init="$nextTick(() => init())" class="h-screen flex bg-slate-950">
 
-  <div class="relative flex-1 min-w-0 h-full">
+  {{-- MAP WRAPPER --}}
+  <div class="map-shell flex-1 min-w-0 h-full">
+
     <div id="map" class="absolute inset-0"></div>
+
+    {{-- Overlay suave --}}
+    <div class="map-overlay inset-0 pointer-events-none bg-gradient-to-r from-black/25 via-transparent to-black/35 mix-blend-multiply"></div>
+
+    {{-- Hint --}}
+    <div class="map-overlay top-3 left-3 pointer-events-auto">
+      <div class="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-100 text-xs shadow-lg">
+        Click en un punto o en la timeline para ver el detalle
+      </div>
+    </div>
+  {{-- TIMELINE --}}
+  <div class="timeline-overlay"
+      x-show="timelineLugares.length"
+      x-transition.opacity
+      style="display:none;">
+
+    <div class="timeline-card rounded-2xl border border-slate-800 bg-slate-950/85 backdrop-blur shadow-xl px-4 py-3">
+      <div class="flex items-center gap-3">
+
+        <!-- Flecha izquierda -->
+        <button type="button"
+                class="shrink-0 w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
+                      hover:bg-slate-900 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                @click="timelinePrevItem()"
+                :disabled="!timelineLugares.length || selectedIndex() <= 0"
+                title="Anterior">
+          &lt;
+        </button>
+
+        <!-- Centro -->
+        <div class="relative flex-1 min-w-0">
+
+          <!-- Línea conectora -->
+          <div class="absolute left-2 right-2 top-[18px] h-[2px] bg-slate-700/80"></div>
+
+          <!-- 6 slots iguales -->
+          <div class="timeline-row relative">
+            <template x-for="(slot, localIdx) in timelineSlots()" :key="'slot_' + localIdx">
+
+              <div class="timeline-item" :class="!slot ? 'placeholder' : ''">
+                <template x-if="slot">
+                  <button type="button"
+                          class="w-full min-w-0"
+                          @click="selectByCodigo(slot.codigo, true)"
+                          :title="slot.titulo">
+
+                    <!-- círculo -->
+                    <div class="mx-auto w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
+                                flex items-center justify-center text-[12px] font-semibold"
+                        :class="(detalle?.codigo && String(detalle.codigo) === String(slot.codigo))
+                                  ? 'ring-2 ring-emerald-500/70 border-emerald-400/40'
+                                  : ''">
+                      <span x-text="timelinePage * timelinePageSize + localIdx + 1"></span>
+                    </div>
+
+                    <!-- título (responsive, no rompe el layout) -->
+                    <div class="mt-2 text-[12px] leading-snug text-slate-100 line-clamp-2">
+                      <span x-text="slot.titulo"></span>
+                    </div>
+                  </button>
+                </template>
+              </div>
+
+            </template>
+          </div>
+
+          <!-- indicador -->
+          <div class="mt-2 text-[11px] text-slate-400 text-center tabular-nums"
+              x-show="timelineTotalPages() > 1">
+            <span x-text="(timelinePage + 1) + ' / ' + timelineTotalPages()"></span>
+          </div>
+
+        </div>
+
+        <!-- Flecha derecha -->
+        <button type="button"
+                class="shrink-0 w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
+                      hover:bg-slate-900 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                @click="timelineNextItem()"
+                :disabled="!timelineLugares.length || (selectedIndex() >= timelineLugares.length - 1 && selectedIndex() !== -1)"
+                title="Siguiente">
+          &gt;
+        </button>
+
+      </div>
+    </div>
   </div>
 
   {{-- SIDEBAR --}}
@@ -23,22 +166,28 @@
     class="shrink-0 relative border-l border-slate-800 bg-slate-950/95 text-slate-100 transition-all duration-300"
     :class="sidebarMin ? 'w-[72px]' : 'w-[420px]'"
   >
+    {{-- Toggle --}}
     <button
       class="absolute -left-4 top-4 z-40 w-8 h-8 rounded-2xl border border-slate-800 bg-slate-950/90 backdrop-blur shadow
-            flex items-center justify-center hover:bg-slate-900"
+             flex items-center justify-center hover:bg-slate-900"
       @click="sidebarMin = !sidebarMin"
       :title="sidebarMin ? 'Expandir panel' : 'Minimizar panel'"
     >
       <span x-text="sidebarMin ? '›' : '‹'"></span>
     </button>
 
-    <div class="p-4 border-b border-slate-800 flex items-center gap-2 justify-between" x-show="!sidebarMin">
-      <div class="min-w-0">
-        <div class="text-xs text-slate-400" x-text="detalle?.categoria ?? ''"></div>
-        <h2 class="text-lg font-bold truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
+    {{-- Header --}}
+    <div class="p-4 border-b border-slate-800" x-show="!sidebarMin">
+      <div class="text-xs text-slate-400" x-text="detalle?.categoria ?? ''"></div>
+      <h2 class="text-lg font-bold truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
+
+      {{-- ✅ FIX: no rompas si detalle es null --}}
+      <div class="text-[11px] text-slate-500 mt-1" x-show="detalle?.codigo">
+        Código: <span x-text="detalle?.codigo ?? ''"></span>
       </div>
     </div>
 
+    {{-- Body --}}
     <div class="p-4 overflow-auto" :class="sidebarMin ? 'pt-14 h-screen' : 'h-[calc(100vh-57px)]'">
       <template x-if="loading && !sidebarMin">
         <div class="text-sm text-slate-400">Cargando…</div>
@@ -46,10 +195,12 @@
 
       <template x-if="!loading && detalle && !sidebarMin">
         <div class="space-y-4">
+
+          {{-- Tarjeta --}}
           <div class="rounded-2xl overflow-hidden border border-[#e6e0cf] bg-[#faf7f0] text-[#2b2b2b] shadow-xl">
             <div class="relative">
-              <template x-if="primaryAsset() && primaryAsset().kind === 'image'">
-                <img class="w-full h-40 object-cover"
+              <template x-if="primaryAsset() && (primaryAsset().kind || '').toLowerCase() === 'image'">
+                <img class="w-full h-44 object-cover"
                      :src="mediaUrlFromItem(primaryAsset())"
                      :alt="(primaryAsset().titulo ?? detalle.titulo)">
               </template>
@@ -78,66 +229,68 @@
             </div>
           </div>
 
-          <div class="space-y-2" x-show="imagesOnly().length">
-            <div class="text-xs text-slate-400 uppercase tracking-wide">Imágenes</div>
-            <div class="grid grid-cols-2 gap-2">
-              <template x-for="img in imagesOnly()" :key="img._fileId">
-                <button type="button"
-                        class="rounded-xl overflow-hidden border border-slate-800 bg-slate-900/40 hover:bg-slate-900 text-left"
-                        @click="openPreview(img)">
-                  <img :src="mediaUrlFromItem(img)" class="w-full h-28 object-cover" />
-                  <div class="p-2 space-y-1">
-                    <div class="text-xs text-slate-200 truncate" x-text="img.titulo || 'Imagen'"></div>
-                    <div class="text-[11px] text-slate-400 truncate" x-text="img.categoria || ''"></div>
-                  </div>
-                </button>
-              </template>
-            </div>
+          {{-- Galería por año --}}
+          <div class="space-y-2" x-show="Object.keys(galleryByYear()).length">
+            <div class="text-xs text-slate-400 uppercase tracking-wide">Galería (por año)</div>
+
+            <template x-for="(imgs, year) in galleryByYear()" :key="'year_' + year">
+              <div class="rounded-2xl border border-slate-800 bg-slate-900/25 overflow-hidden">
+                <div class="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
+                  <div class="text-sm font-semibold text-slate-200" x-text="year"></div>
+                  <div class="text-[11px] text-slate-400" x-text="imgs.length + ' img'"></div>
+                </div>
+
+                <div class="p-3 grid grid-cols-2 gap-2">
+                  <template x-for="img in imgs" :key="img._fileId">
+                    <button type="button"
+                      class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950/30 hover:bg-slate-900 text-left"
+                      @click="openPreview(img)">
+                      <img :src="mediaUrlFromItem(img)" class="w-full h-28 object-cover" />
+                      <div class="p-2 space-y-1">
+                        <div class="text-xs text-slate-200 truncate" x-text="img.titulo || 'Imagen'"></div>
+                        <div class="text-[11px] text-slate-400 truncate" x-text="img.nota || ''"></div>
+                      </div>
+                    </button>
+                  </template>
+                </div>
+              </div>
+            </template>
           </div>
+
         </div>
       </template>
+
+      <template x-if="!loading && !detalle && !sidebarMin">
+        <div class="text-sm text-slate-400">Elegí un punto o un ítem del timeline.</div>
+      </template>
+    </div>
+
+    {{-- Modal preview --}}
+    <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4"
+         x-show="previewOpen"
+         x-transition.opacity
+         @keydown.escape.window="previewOpen=false"
+         style="display:none;">
+      <div class="w-full max-w-5xl rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl">
+        <div class="p-3 flex items-center justify-between border-b border-slate-800">
+          <div class="text-sm text-slate-100 truncate" x-text="previewTitle"></div>
+          <button class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm" @click="previewOpen=false">
+            Cerrar
+          </button>
+        </div>
+
+        <div class="bg-black">
+          <template x-if="previewKind === 'image'">
+            <img class="w-full max-h-[80vh] object-contain" :src="previewUrl" />
+          </template>
+
+          <template x-if="previewKind === 'pdf'">
+            <iframe class="w-full h-[80vh] bg-white" :src="previewUrl"></iframe>
+          </template>
+        </div>
+      </div>
     </div>
   </aside>
-  {{-- TIMELINE --}}
-  <div class="space-y-2" x-show="timelineItems().length">
-    <div class="text-xs text-slate-400 uppercase tracking-wide">Timeline</div>
-
-    <div class="rounded-2xl border border-slate-800 bg-slate-900/30 p-3">
-      <!-- Nodos -->
-      <div class="flex items-center gap-2 overflow-x-auto pb-2">
-        <template x-for="(it, idx) in timelineItems()" :key="it._fileId + '_' + idx">
-          <div class="flex items-center gap-2 shrink-0">
-            <!-- Nodo -->
-            <button
-              type="button"
-              class="w-8 h-8 rounded-full border border-slate-700 bg-slate-950 text-slate-100 text-xs font-semibold
-                    hover:bg-slate-900"
-              @click="openPreview(it)"
-              :title="timelineLabel(it, idx)"
-            >
-              <span x-text="idx + 1"></span>
-            </button>
-
-            <!-- Conector (no en el último) -->
-            <div
-              class="h-[2px] w-10 bg-slate-700"
-              x-show="idx !== timelineItems().length - 1"
-            ></div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Texto debajo -->
-      <div class="mt-2 space-y-2">
-        <template x-for="(it, idx) in timelineItems()" :key="'lbl_' + (it._fileId || idx)">
-          <div class="text-sm leading-snug">
-            <span class="text-slate-300 font-semibold" x-text="'(' + (idx+1) + ') '"></span>
-            <span class="text-slate-200" x-text="timelineLabel(it, idx)"></span>
-          </div>
-        </template>
-      </div>
-    </div>
-  </div>
 
 </div>
 @endsection
@@ -146,74 +299,125 @@
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
 
 <script>
-console.log('SCRIPT CENTENARIO CARGADO ✅');
-
 document.addEventListener('alpine:init', () => {
   Alpine.data('centenarioMap', () => ({
+    // UI
     sidebarMin: false,
     loading: false,
     detalle: null,
-    map: null,
 
+    // map
+    map: null,
+    _clickBound: false,
+
+    // timeline
+    timelineLugares: [],
+    _lugaresByCodigo: {},
+
+    // paginado timeline
+    timelinePage: 0,
+    timelinePageSize: 6,
+
+    timelineSlots() {
+      const items = this.timelinePageItems(); // los reales
+      const slots = items.slice(0, this.timelinePageSize);
+
+      // rellenamos con null hasta 6 para mantener tamaños
+      while (slots.length < this.timelinePageSize) slots.push(null);
+
+      return slots;
+    },
+
+
+    timelineTotalPages() {
+      const n = this.timelineLugares?.length || 0;
+      return Math.max(1, Math.ceil(n / this.timelinePageSize));
+    },
+    timelinePageItems() {
+      const start = this.timelinePage * this.timelinePageSize;
+      return (this.timelineLugares || []).slice(start, start + this.timelinePageSize);
+    },
+    timelinePrev() {
+      this.timelinePage = Math.max(0, this.timelinePage - 1);
+    },
+    timelineNext() {
+      this.timelinePage = Math.min(this.timelineTotalPages() - 1, this.timelinePage + 1);
+    },
+    timelineGoToIndex(i) {
+      const page = Math.floor(i / this.timelinePageSize);
+      this.timelinePage = Math.max(0, Math.min(this.timelineTotalPages() - 1, page));
+    },
+
+    selectedCodigo() {
+      return this.detalle?.codigo ? String(this.detalle.codigo) : null;
+    },
+    selectedIndex() {
+      const cod = this.selectedCodigo();
+      if (!cod) return -1;
+      return (this.timelineLugares || []).findIndex(x => String(x.codigo) === cod);
+    },
+    ensureVisibleIndex(idx) {
+      if (idx < 0) return;
+      this.timelineGoToIndex(idx); // usa tu paginado de 6 para mostrar el grupo donde cae
+    },
+    timelineSelectAt(idx) {
+      if (!this.timelineLugares?.length) return;
+      idx = Math.max(0, Math.min(this.timelineLugares.length - 1, idx));
+      const p = this.timelineLugares[idx];
+      if (!p) return;
+      this.ensureVisibleIndex(idx);
+      this.selectByCodigo(p.codigo, true);
+    },
+    timelinePrevItem() {
+      const idx = this.selectedIndex();
+      // si no hay seleccionado, ir al primero visible
+      if (idx < 0) return this.timelineSelectAt(this.timelinePage * this.timelinePageSize);
+      this.timelineSelectAt(idx - 1);
+    },
+    timelineNextItem() {
+      const idx = this.selectedIndex();
+      if (idx < 0) return this.timelineSelectAt(this.timelinePage * this.timelinePageSize);
+      this.timelineSelectAt(idx + 1);
+    },
+
+
+    initialsFromTitle(t) {
+      const s = String(t || '').trim();
+      if (!s) return '•';
+      const words = s.split(/\s+/).filter(Boolean);
+      // 1 palabra -> 2 letras, 2+ palabras -> iniciales
+      if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+      return (words[0][0] + (words[1]?.[0] || '')).toUpperCase();
+    },
+    shortTitle(t, max = 18) {
+      const s = String(t || '').trim();
+      if (!s) return '';
+      return s.length > max ? s.slice(0, max - 1) + '…' : s;
+    },
+
+    // preview
     previewOpen: false,
     previewUrl: '',
     previewTitle: '',
     previewKind: '',
     _mediaPrimary: null,
-    _clickBound: false,
 
-    timelineItems() {
-    // usa detalle.imagenes (ya viene mezclado Import + Imagenes)
-    const items = (this.detalle?.imagenes || [])
-      .filter(i => String(i?.kind || '').toLowerCase() === 'image') // o sacá esto si querés incluir pdf/audio
-      .map(i => ({
-        ...i,
-        _fileId: this.fileIdOf(i),
-        _orden: Number(i?.orden ?? 0),
-        _nota: (i?.nota ?? '').toString().trim(),
-      }))
-      .sort((a,b) => (a._orden - b._orden));
-
-    return items;
-  },
-
-  timelineLabel(item, idx) {
-    // prioridad: nota; fallback: titulo; fallback: "Paso N"
-    const n = (item?._nota || '').trim();
-    if (n) return n;
-    const t = (item?.titulo || '').toString().trim();
-    if (t) return t;
-    return `Paso ${idx + 1}`;
-  },
-
-
-    initWatchers() {
-      // cuando cambia sidebarMin
-      this.$watch('sidebarMin', () => {
-        this.$nextTick(() => {
-          setTimeout(() => { try { this.map?.resize(); } catch(e) {} }, 50);
-        });
-      });
-
-      // cuando termina la animación del aside (transition-all duration-300)
-      const aside = document.querySelector('aside');
-      if (aside && !aside._resizeBound) {
-        aside._resizeBound = true;
-        aside.addEventListener('transitionend', (ev) => {
-          if (ev.propertyName === 'width') {
-            try { this.map?.resize(); } catch(e) {}
-          }
-        });
-      }
-    },
-
-
+    // helpers
     mediaUrl(fileId) { return `/media/drive/${encodeURIComponent(fileId)}`; },
     fileIdOf(item) { return item?._fileId || item?.file_id || item?.drive_file_id || item?.fileId || null; },
-
     mediaUrlFromItem(item) {
       const id = this.fileIdOf(item);
       return id ? this.mediaUrl(id) : '';
+    },
+
+    sortByCodigo(a, b) {
+      const sa = String(a?.codigo ?? '');
+      const sb = String(b?.codigo ?? '');
+      const na = Number(sa), nb = Number(sb);
+      const aNum = Number.isFinite(na) && sa.trim() !== '';
+      const bNum = Number.isFinite(nb) && sb.trim() !== '';
+      if (aNum && bNum) return na - nb;
+      return sa.localeCompare(sb, 'es', { numeric: true, sensitivity: 'base' });
     },
 
     imagesOnly() {
@@ -225,18 +429,41 @@ document.addEventListener('alpine:init', () => {
     },
 
     primaryAsset() {
-      const items = this.detalle?.imagenes || [];
-      if (!items.length) return null;
-      return this._mediaPrimary || items[0];
+      const imgs = this.imagesOnly();
+      if (!imgs.length) return null;
+      return this._mediaPrimary || imgs[0];
     },
 
     openPreview(item) {
       const id = this.fileIdOf(item);
       if (!id) return;
-      this.previewKind  = item?.kind || 'image';
+      this.previewKind  = (item?.kind || 'image').toLowerCase();
       this.previewTitle = item?.titulo || 'Vista previa';
       this.previewUrl   = this.mediaUrl(id);
       this.previewOpen  = true;
+    },
+
+    galleryByYear() {
+      const imgs = this.imagesOnly()
+        .map(i => ({
+          ...i,
+          _year: (i?.anio && String(i.anio).trim() !== '') ? String(i.anio).trim() : 'Sin año',
+          _orden: Number(i?.orden ?? 0),
+        }))
+        .sort((a,b) => {
+          const ay = a._year === 'Sin año' ? 999999 : Number(a._year) || 999999;
+          const by = b._year === 'Sin año' ? 999999 : Number(b._year) || 999999;
+          if (ay !== by) return ay - by;
+          if (a._orden !== b._orden) return a._orden - b._orden;
+          return String(a.titulo || '').localeCompare(String(b.titulo || ''), 'es', { sensitivity:'base' });
+        });
+
+      const grouped = {};
+      for (const img of imgs) {
+        grouped[img._year] ??= [];
+        grouped[img._year].push(img);
+      }
+      return grouped;
     },
 
     googleMapsUrl() {
@@ -247,11 +474,46 @@ document.addEventListener('alpine:init', () => {
       return `https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=${lat},${lng}&travelmode=walking`;
     },
 
-    async init() {
-      if (this.map) {
-        try { this.map.resize(); } catch(e) {}
-        return;
+    initWatchers() {
+      this.$watch('sidebarMin', () => {
+        this.$nextTick(() => setTimeout(() => { try { this.map?.resize(); } catch(e) {} }, 80));
+      });
+
+      const aside = document.querySelector('aside');
+      if (aside && !aside._resizeBound) {
+        aside._resizeBound = true;
+        aside.addEventListener('transitionend', (ev) => {
+          if (ev.propertyName === 'width') {
+            try { this.map?.resize(); } catch(e) {}
+          }
+        });
       }
+    },
+
+    async selectByCodigo(codigo, fromTimeline = false) {
+      const cod = String(codigo);
+      const p = this._lugaresByCodigo[cod];
+
+      const idx = (this.timelineLugares || []).findIndex(x => String(x.codigo) === String(cod));
+      if (idx >= 0) this.timelineGoToIndex(idx);
+
+      
+      await this.cargarDetalle(cod);
+
+      if (p && this.map) {
+        try { this.map.setFilter('lugares-selected', ['==', ['get', 'id'], cod]); } catch(e) {}
+        try {
+          this.map.easeTo({
+            center: [Number(p.lng), Number(p.lat)],
+            zoom: Math.max(this.map.getZoom(), 16),
+            duration: fromTimeline ? 650 : 450
+          });
+        } catch(e) {}
+      }
+    },
+
+    async init() {
+      if (this.map) { try { this.map.resize(); } catch(e) {} return; }
 
       this.initWatchers();
 
@@ -261,9 +523,10 @@ document.addEventListener('alpine:init', () => {
       el.replaceChildren();
 
       mapboxgl.accessToken = @json(config('services.mapbox.token'));
-      if (!mapboxgl?.accessToken) return;
-
-      console.log('MAP EL SIZE:', el.clientWidth, el.clientHeight, 'children:', el.children.length);
+      if (!mapboxgl?.accessToken) {
+        console.error('Falta Mapbox token');
+        return;
+      }
 
       this.map = new mapboxgl.Map({
         container: el,
@@ -275,11 +538,6 @@ document.addEventListener('alpine:init', () => {
         bearing: -15
       });
 
-      setTimeout(() => {
-        console.log('AFTER CREATE: canvas?', !!el.querySelector('canvas'), 'SIZE:', el.clientWidth, el.clientHeight);
-      }, 300);
-
-
       this.map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'top-right');
       this.map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
@@ -287,6 +545,25 @@ document.addEventListener('alpine:init', () => {
 
       this.map.on('load', async () => {
         const geo = await fetch(@json(route('centenario.geojson'))).then(r => r.json());
+
+        const feats = (geo?.features || []).map(f => ({
+          codigo: String(f?.properties?.codigo ?? f?.properties?.id ?? ''),
+          titulo: String(f?.properties?.titulo ?? ''),
+          categoria: String(f?.properties?.categoria ?? ''),
+          color: String(f?.properties?.color ?? '#2563eb'),
+          lng: Number(f?.geometry?.coordinates?.[0]),
+          lat: Number(f?.geometry?.coordinates?.[1]),
+        })).filter(x => x.codigo && Number.isFinite(x.lat) && Number.isFinite(x.lng));
+
+        feats.sort((a,b) => this.sortByCodigo(a,b));
+        this.timelineLugares = feats;
+
+        if (this.timelineLugares.length && !this.detalle) {
+          this.selectByCodigo(this.timelineLugares[0].codigo, false);
+        }
+
+        this._lugaresByCodigo = {};
+        for (const p of feats) this._lugaresByCodigo[String(p.codigo)] = p;
 
         if (!this.map.getSource('lugares')) {
           this.map.addSource('lugares', { type:'geojson', data: geo });
@@ -308,6 +585,20 @@ document.addEventListener('alpine:init', () => {
           });
         }
 
+        if (!this.map.getLayer('lugares-selected')) {
+          this.map.addLayer({
+            id: 'lugares-selected',
+            type: 'circle',
+            source: 'lugares',
+            filter: ['==', ['get', 'id'], '__none__'],
+            paint: {
+              'circle-radius': 13,
+              'circle-color': '#fff',
+              'circle-opacity': 0.25
+            }
+          });
+        }
+
         if (!this._clickBound) {
           this._clickBound = true;
 
@@ -315,35 +606,32 @@ document.addEventListener('alpine:init', () => {
             const f = e.features?.[0];
             if (!f) return;
 
-            const id = f.properties?.id; // ojo: puede ser string
-            if (id === undefined || id === null) return;
+            const id = String(f.properties?.id ?? f.properties?.codigo ?? '');
+            if (!id) return;
 
-            this.cargarDetalle(id);
-
-            const coords = f.geometry.coordinates;
-            this.map.easeTo({
-              center: coords,
-              zoom: Math.max(this.map.getZoom(), 16),
-              duration: 650
-            });
+            try { this.map.setFilter('lugares-selected', ['==', ['get', 'id'], id]); } catch(e){}
+            this.selectByCodigo(id, false);
           });
 
           this.map.on('mouseenter','lugares-points', ()=>this.map.getCanvas().style.cursor='pointer');
           this.map.on('mouseleave','lugares-points', ()=>this.map.getCanvas().style.cursor='');
         }
 
-          setTimeout(() => { try { this.map.resize(); } catch(e) {} }, 50);
-          setTimeout(() => { try { this.map.resize(); } catch(e) {} }, 350);
+        setTimeout(() => { try { this.map.resize(); } catch(e) {} }, 120);
       });
 
       window.addEventListener('resize', ()=>{ try{ this.map.resize(); }catch(e){} });
     },
 
-    async cargarDetalle(id) {
+    async cargarDetalle(codigo) {
       this.loading = true;
+      this._mediaPrimary = null;
       try {
-        const url = @json(route('centenario.show', ['lugar' => '__ID__'])).replace('__ID__', id);
-        this.detalle = await fetch(url).then(r => r.json());
+        const url = @json(route('centenario.show', ['lugar' => '__ID__']))
+          .replace('__ID__', encodeURIComponent(String(codigo)));
+        const data = await fetch(url).then(r => r.json());
+        data.codigo = String(data.codigo ?? codigo);
+        this.detalle = data;
       } finally {
         this.loading = false;
       }
