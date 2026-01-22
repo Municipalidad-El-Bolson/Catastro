@@ -27,6 +27,33 @@
       z-index: 2;
     }
 
+    /* Scrollbar gris oscuro – estilo timeline */
+    .sidebar-scroll {
+      direction: rtl;              /* mueve la scrollbar a la IZQUIERDA */
+    }
+
+    .sidebar-scroll > * {
+      direction: ltr;              /* el contenido sigue normal */
+    }
+
+    .sidebar-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .sidebar-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);   /* slate-900 */
+      border-radius: 9999px;
+    }
+
+    .sidebar-scroll::-webkit-scrollbar-thumb {
+      background: rgba(51, 65, 85, 0.9);   /* slate-600 */
+      border-radius: 9999px;
+    }
+
+    .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(71, 85, 105, 1);    /* slate-500 */
+    }
+
     /* overlays arriba SIEMPRE */
     .map-overlay { position:absolute; z-index: 50; }
 
@@ -36,7 +63,7 @@
       left: 1.5rem;
       right: 1.5rem;
       bottom: 1rem;
-      z-index: 40;
+      z-index: 70;
       pointer-events: auto;
     }
 
@@ -65,6 +92,67 @@
       pointer-events:none;
     }
 
+    /* Botones redondos (flechas) con estética slate, tipo "pill" */
+    .nav-round-btn{
+      width: 44px;
+      height: 44px;
+      border-radius: 9999px;
+
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      background: rgba(2, 6, 23, 0.70);           /* slate-950 */
+      color: rgba(226, 232, 240, 1);              /* slate-200 */
+      border: 1px solid rgba(71, 85, 105, 0.70);  /* slate-600 */
+
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 30px rgba(0,0,0,.35);
+
+      transition: transform .12s ease, background .2s ease, border-color .2s ease;
+    }
+
+    .nav-round-btn:hover{
+      background: rgba(15, 23, 42, 0.85);         /* slate-900 */
+      border-color: rgba(148, 163, 184, 0.45);    /* slate-400 */
+    }
+
+    .nav-round-btn:active{
+      transform: scale(0.96);
+    }
+
+    /* Card “gris” (misma estética del cuadrado/gris oscuro con blur) */
+    .ui-card{
+      border-radius: 16px;                         /* parecido a rounded-2xl */
+      border: 1px solid rgba(30, 41, 59, 0.75);    /* slate-800 */
+      background: rgba(2, 6, 23, 0.60);            /* slate-950 */
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 40px rgba(0,0,0,.35);
+    }
+
+    /* Thumbnail de galería consistente */
+    .ui-thumb{
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(51, 65, 85, 0.80);    /* slate-700/800 */
+      background: rgba(2, 6, 23, 0.45);
+      transition: transform .12s ease, background .2s ease, border-color .2s ease;
+    }
+
+    .ui-thumb:hover{
+      background: rgba(15, 23, 42, 0.60);
+      border-color: rgba(148, 163, 184, 0.35);
+      transform: translateY(-1px);
+    }
+
+    /* Imágenes cuadradas (queda muy “galería pro”) */
+    .ui-thumb img{
+      aspect-ratio: 1 / 1;
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+      display: block;
+    }
 
   </style>
 @endpush
@@ -73,9 +161,7 @@
 @section('content')
 <div x-data="centenarioMap"
      x-init="$nextTick(() => init())"
-     class="h-screen relative bg-slate-950 overflow-hidden"
-     :style="`--sbw:${sidebarWidthPx()}px`">
-
+     class="h-screen flex bg-slate-950 overflow-hidden">
 
   {{-- MAP WRAPPER --}}
   <div class="map-shell flex-1 min-w-0 h-full">
@@ -83,41 +169,29 @@
     <div id="map" class="absolute inset-0"></div>
 
     {{-- Overlay suave --}}
-    <div class="map-overlay inset-0 pointer-events-none bg-gradient-to-r from-black/25 via-transparent to-black/35 mix-blend-multiply"></div>
+    <div class="absolute inset-0 bg-gradient-to-t
+            from-slate-950/95 via-slate-950/35 to-transparent
+            z-10 pointer-events-none"></div>
 
-  <div class="timeline-overlay"
-     x-show="timelineLugares.length"
-     x-transition.opacity
-     style="display:none;">
+    <div class="timeline-overlay"
+      x-show="timelineLugares.length"
+      x-transition.opacity
+      style="display:none;">
 
-    <div
-      class="w-full max-w-full
-            rounded-2xl border border-slate-800
-            bg-slate-950/85 backdrop-blur shadow-xl
-            px-4 py-3
-            transition-all duration-300"
-      :style="sidebarMin
-        ? 'width: 85%; margin-left: auto; margin-right: auto;'
-        : 'width: 65%; margin-left: auto;'"
-    >
+      <div
+        class="w-full max-w-full
+              rounded-2xl border border-slate-800
+              bg-slate-950/85 backdrop-blur shadow-xl
+              px-4 py-3
+              transition-all duration-300"
+        :style="sidebarMin
+          ? 'width: 85%; margin-left: auto; margin-right: auto;'
+          : 'width: 65%; margin-left: auto;'"
+      >
 
+      <div class="flex items-center gap-3">
 
-
-    <div class="flex items-center gap-3">
-
-      <!-- Flecha izquierda -->
-      <button type="button"
-              class="shrink-0 w-10 h-10 rounded-full
-                    bg-emerald-600/90 text-white
-                    shadow-lg shadow-emerald-900/30
-                    hover:bg-emerald-500
-                    active:scale-95
-                    transition
-                    disabled:opacity-30 disabled:cursor-not-allowed"
-              @click="timelinePrevItem()">
-        ‹
-      </button>
-
+      <button class="nav-round-btn text-[28px] leading-none font-black" @click="timelinePrevItem()">‹</button>
 
       <!-- Timeline -->
       <div class="relative flex-1 min-w-0">
@@ -147,19 +221,7 @@
       </div>
 
       <!-- Flecha derecha -->
-      <button type="button"
-              class="shrink-0 w-10 h-10 rounded-full
-                    bg-emerald-600/90 text-white
-                    shadow-lg shadow-emerald-900/30
-                    hover:bg-emerald-500
-                    active:scale-95
-                    transition
-                    disabled:opacity-30 disabled:cursor-not-allowed"
-              @click="timelineNextItem()">
-        ›
-      </button>
-
-
+      <button class="nav-round-btn text-[28px] leading-none font-black" @click="timelineNextItem()">›</button>
     </div>
   </div>
 </div>
@@ -169,140 +231,168 @@
   class="shrink-0 relative z-50 text-slate-100 transition-all duration-300
          border border-slate-800 rounded-2xl
          bg-slate-950/85 backdrop-blur shadow-xl
-         m-3 overflow-hidden"
+         m-3 overflow-visible"
   :class="sidebarMin ? 'w-[72px]' : 'w-[420px]'"
 >
-
-  {{-- Toggle (sobresale un poquito a la derecha) --}}
+  {{-- Toggle (sobresale un poquito a la derecha, centrado) --}}
   <button
-    style="top:6%; right:-10px; transform: translateY(-50%);"
-    class="absolute z-[80] w-8 h-8 rounded-full
-           bg-emerald-600/90 text-white
-           shadow-lg shadow-emerald-900/30
-           hover:bg-emerald-500 active:scale-95 transition
-           flex items-center justify-center"
-    @click="sidebarMin = !sidebarMin"
+    class="absolute top-1/2 right-0 translate-x-1/2 -translate-y-1/2 z-[999]
+          nav-round-btn text-xl font-bold"
+          @click="sidebarMin = !sidebarMin"
   >
     <span x-text="sidebarMin ? '›' : '‹'"></span>
   </button>
 
-  {{-- Header --}}
-  <div class="p-4 border-b border-slate-800/80" x-show="!sidebarMin">
-    <div class="text-xs text-slate-300 uppercase tracking-wide" x-text="detalle?.categoria ?? ''"></div>
-    <h2 class="text-lg font-bold text-slate-100 truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
 
-    <div class="text-[11px] text-slate-400 mt-1" x-show="detalle?.codigo">
-      Código: <span class="text-slate-200" x-text="detalle?.codigo ?? ''"></span>
+  <div class="h-full overflow-hidden rounded-2xl">
+
+    {{-- Header --}}
+    <div class="p-4 border-b border-slate-800/80" x-show="!sidebarMin">
+      <div class="text-xs text-slate-300 uppercase tracking-wide" x-text="detalle?.categoria ?? ''"></div>
+      <h2 class="text-lg font-bold text-slate-100 truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
+
+      <div class="text-[11px] text-slate-400 mt-1" x-show="detalle?.codigo">
+        Código: <span class="text-slate-200" x-text="detalle?.codigo ?? ''"></span>
+      </div>
     </div>
-  </div>
 
-  {{-- Body --}}
-  <div class="p-4 overflow-auto" :class="sidebarMin ? 'pt-14 h-screen' : 'h-[calc(100vh-57px)]'">
-    <template x-if="loading && !sidebarMin">
-      <div class="text-sm text-slate-300">Cargando…</div>
-    </template>
+    {{-- Body --}}
+    <div class="p-4 overflow-auto sidebar-scroll" :class="sidebarMin ? 'pt-14 h-screen' : 'h-[calc(100vh-57px)]'">
+      <template x-if="loading && !sidebarMin">
+        <div class="text-sm text-slate-300">Cargando…</div>
+      </template>
 
-    <template x-if="!loading && detalle && !sidebarMin">
-      <div class="space-y-4">
+      <template x-if="!loading && detalle && !sidebarMin">
+        <div class="space-y-4">
 
-        {{-- Tarjeta (la dejamos “crema” si querés contraste, o la hacemos dark abajo) --}}
-        <div class="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950/40 text-slate-100 shadow-lg">
-          <div class="relative">
-            <template x-if="primaryAsset() && (primaryAsset().kind || '').toLowerCase() === 'image'">
-              <img class="w-full h-44 object-cover"
-                   :src="mediaUrlFromItem(primaryAsset())"
-                   :alt="(primaryAsset().titulo ?? detalle.titulo)">
-            </template>
+          {{-- Tarjeta (la dejamos “crema” si querés contraste, o la hacemos dark abajo) --}}
+          <div class="rounded-2xl overflow-hidden
+            border border-slate-800/80
+            bg-slate-950/60 backdrop-blur
+            text-slate-100 shadow-xl shadow-black/50">
 
-            <template x-if="!primaryAsset()">
-              <div class="p-6 text-center text-sm text-slate-300">Sin multimedia asociada</div>
-            </template>
-
-            <button
-              class="absolute top-3 right-3 px-3 py-1 rounded-xl
-                     bg-slate-950/70 text-white text-xs backdrop-blur
-                     border border-slate-700 hover:bg-slate-900/80"
-              x-show="primaryAsset()"
-              @click="openPreview(primaryAsset())"
-            >Ampliar</button>
-          </div>
-
-          <div class="p-5 text-center space-y-3">
-            <div class="text-sm text-slate-300" x-text="detalle.localidad ?? ''"></div>
-            <div class="text-[20px] leading-snug font-semibold text-slate-100" x-text="detalle.titulo"></div>
-            <div class="text-sm text-slate-200 whitespace-pre-line" x-text="detalle.descripcion ?? ''"></div>
-            <div class="text-sm text-slate-300" x-text="detalle.direccion ?? ''"></div>
-
-            <a :href="googleMapsUrl()" target="_blank" rel="noopener"
-               class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl
-                      bg-emerald-600/90 px-4 py-2 text-white font-semibold
-                      hover:bg-emerald-500 transition">
-              <span>Cómo llegar</span><span>📍</span>
-            </a>
-          </div>
-        </div>
-
-        {{-- Galería por año --}}
-        <div class="space-y-2" x-show="Object.keys(galleryByYear()).length">
-          <div class="text-xs text-slate-300 uppercase tracking-wide">Galería (por año)</div>
-
-          <template x-for="(imgs, year) in galleryByYear()" :key="'year_' + year">
-            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 overflow-hidden">
-              <div class="px-3 py-2 border-b border-slate-800/80 flex items-center justify-between">
-                <div class="text-sm font-semibold text-slate-100" x-text="year"></div>
-                <div class="text-[11px] text-slate-400" x-text="imgs.length + ' img'"></div>
+            <div class="relative">
+              <div class="absolute inset-0
+                bg-gradient-to-t
+                from-slate-950/70
+                via-slate-950/10
+                to-transparent
+                z-10 pointer-events-none"></div>
               </div>
 
-              <div class="p-3 grid grid-cols-2 gap-2">
-                <template x-for="img in imgs" :key="img._fileId">
-                  <button type="button"
-                    class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950/30
-                           hover:bg-slate-900/40 text-left transition"
-                    @click="openPreview(img)">
-                    <img :src="mediaUrlFromItem(img)" class="w-full h-28 object-cover" />
-                    <div class="p-2 space-y-1">
-                      <div class="text-xs text-slate-100 truncate" x-text="img.titulo || 'Imagen'"></div>
-                      <div class="text-[11px] text-slate-400 truncate" x-text="img.nota || ''"></div>
-                    </div>
-                  </button>
-                </template>
-              </div>
+              <template x-if="primaryAsset() && (primaryAsset().kind || '').toLowerCase() === 'image'">
+                <img class="w-full h-44 object-cover"
+                    :src="mediaUrlFromItem(primaryAsset())"
+                    :alt="(primaryAsset().titulo ?? detalle.titulo)">
+              </template>
+
+              <template x-if="!primaryAsset()">
+                <div class="p-6 text-center text-sm text-slate-300">Sin multimedia asociada</div>
+              </template>
+
+              <button
+                class="absolute z-20 top-3 right-3 px-3 py-1 rounded-xl
+                      bg-slate-950/70 text-white text-xs backdrop-blur
+                      border border-slate-700 hover:bg-slate-900/80"
+                x-show="primaryAsset()"
+                @click="openPreview(primaryAsset())"
+              >Ampliar</button>
+
             </div>
-          </template>
+
+            <div class="p-5 text-center space-y-3 bg-slate-950/70">
+              <div class="text-sm text-slate-200" x-text="detalle.localidad ?? ''"></div>
+              <div class="text-[20px] leading-snug font-semibold text-slate-100" x-text="detalle.titulo"></div>
+              <div class="text-sm text-slate-100 whitespace-pre-line" x-text="detalle.descripcion ?? ''"></div>
+              <div class="text-sm text-slate-200" x-text="detalle.direccion ?? ''"></div>
+
+              <a :href="googleMapsUrl()" target="_blank" rel="noopener"
+                class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl
+                        bg-emerald-600/90 px-4 py-2 text-white font-semibold
+                        hover:bg-emerald-500 transition">
+                <span>Cómo llegar</span><span>📍</span>
+              </a>
+            </div>
+          </div>
+
+          {{-- Galería por año --}}
+          <div class="space-y-2" x-show="Object.keys(galleryByYear()).length">
+            <div class="text-xs text-slate-300 uppercase tracking-wide">Galería (por año)</div>
+
+            <template x-for="(imgs, year) in galleryByYear()" :key="'year_' + year">
+              <div class="relative ui-card overflow-hidden text-slate-100">
+
+
+                <!-- overlay suave (opcional, no tapa el contenido) -->
+                <div class="absolute inset-0
+                            bg-gradient-to-t
+                            from-slate-950/40
+                            via-transparent
+                            to-transparent
+                            pointer-events-none"></div>
+
+                <!-- contenido arriba del overlay -->
+                <div class="relative">
+                  <div class="px-3 py-2 border-b border-slate-800/80 flex items-center justify-between">
+                    <div class="text-sm font-semibold text-slate-100" x-text="year"></div>
+                    <div class="text-[11px] text-slate-400" x-text="imgs.length + ' img'"></div>
+                  </div>
+
+                  <div class="p-3 grid grid-cols-2 gap-2">
+                    <template x-for="img in imgs" :key="img._fileId">
+                      <button type="button"
+                        class="ui-thumb text-left"
+                        @click="openPreview(img)">
+                        <img :src="mediaUrlFromItem(img)" />
+                        <div class="p-2 space-y-1">
+                          <div class="text-xs text-slate-100 truncate" x-text="img.titulo || 'Imagen'"></div>
+                          <div class="text-[11px] text-slate-300 truncate" x-text="img.nota || ''"></div>
+                        </div>
+                      </button>
+                    </template>
+                  </div>
+                </div>
+
+              </div>
+            </template>
+
+          </div>
+
         </div>
+      </template>
 
-      </div>
-    </template>
-
-    <template x-if="!loading && !detalle && !sidebarMin">
-      <div class="text-sm text-slate-300">Elegí un punto o un ítem del timeline.</div>
-    </template>
-  </div>
-
-  {{-- Modal preview (lo dejo igual, ya coincide) --}}
-  <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4"
-       x-show="previewOpen"
-       x-transition.opacity
-       @keydown.escape.window="previewOpen=false"
-       style="display:none;">
-    <div class="w-full max-w-5xl rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl">
-      <div class="p-3 flex items-center justify-between border-b border-slate-800">
-        <div class="text-sm text-slate-100 truncate" x-text="previewTitle"></div>
-        <button class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm" @click="previewOpen=false">
-          Cerrar
-        </button>
-      </div>
-
-      <div class="bg-black">
-        <template x-if="previewKind === 'image'">
-          <img class="w-full max-h-[80vh] object-contain" :src="previewUrl" />
-        </template>
-
-        <template x-if="previewKind === 'pdf'">
-          <iframe class="w-full h-[80vh] bg-white" :src="previewUrl"></iframe>
-        </template>
-      </div>
+      <template x-if="!loading && !detalle && !sidebarMin">
+        <div class="text-sm text-slate-300">Elegí un punto o un ítem del timeline.</div>
+      </template>
     </div>
+
+    {{-- Modal preview (lo dejo igual, ya coincide) --}}
+    <template x-teleport="body">
+      <div class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 p-4"
+          x-show="previewOpen"
+          x-transition.opacity
+          @keydown.escape.window="previewOpen=false"
+          style="display:none;">
+        <div class="w-full max-w-5xl rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl">
+          <div class="p-3 flex items-center justify-between border-b border-slate-800">
+            <div class="text-sm text-slate-100 truncate" x-text="previewTitle"></div>
+            <button class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm" @click="previewOpen=false">
+              Cerrar
+            </button>
+          </div>
+
+          <div class="bg-black">
+            <template x-if="previewKind === 'image'">
+              <img class="w-full max-h-[80vh] object-contain" :src="previewUrl" />
+            </template>
+
+            <template x-if="previewKind === 'pdf'">
+              <iframe class="w-full h-[80vh] bg-white" :src="previewUrl"></iframe>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </aside>
 
@@ -337,8 +427,6 @@ document.addEventListener('alpine:init', () => {
       while (slots.length < this.timelinePageSize) slots.push(null);
       return slots;
     },
-
-
 
     timelineTotalPages() {
       const n = this.timelineLugares?.length || 0;
