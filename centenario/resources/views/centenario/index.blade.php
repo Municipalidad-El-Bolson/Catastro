@@ -16,9 +16,6 @@
       min-width: 0;   /* importantísimo para flex */
     }
 
-
-
-
     /* el mapa siempre ocupa todo y queda "abajo" */
     #map { position:absolute; inset:0; width:100%; height:100%; z-index: 1; }
 
@@ -43,12 +40,10 @@
       pointer-events: auto;
     }
 
-
-
     .timeline-card{
-      width:100%;
-      max-width:1100px;
-      margin:0 auto;
+      width: 100%;
+      max-width: min(1100px, 100%);
+      margin-inline: auto;
     }
 
     /* 6 items MISMO ancho siempre */
@@ -76,7 +71,11 @@
 
 
 @section('content')
-<div x-data="centenarioMap" x-init="$nextTick(() => init())" class="h-screen flex bg-slate-950">
+<div x-data="centenarioMap"
+     x-init="$nextTick(() => init())"
+     class="h-screen relative bg-slate-950 overflow-hidden"
+     :style="`--sbw:${sidebarWidthPx()}px`">
+
 
   {{-- MAP WRAPPER --}}
   <div class="map-shell flex-1 min-w-0 h-full">
@@ -86,32 +85,39 @@
     {{-- Overlay suave --}}
     <div class="map-overlay inset-0 pointer-events-none bg-gradient-to-r from-black/25 via-transparent to-black/35 mix-blend-multiply"></div>
 
-    {{-- Hint --}}
-    <div class="map-overlay top-3 left-3 pointer-events-auto">
-      <div class="px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-100 text-xs shadow-lg">
-        Click en un punto o en la timeline para ver el detalle
-      </div>
-    </div>
-
   <div class="timeline-overlay"
      x-show="timelineLugares.length"
      x-transition.opacity
      style="display:none;">
 
-  <div class="mx-auto w-full max-w-6xl
-              rounded-2xl border border-slate-800
-              bg-slate-950/85 backdrop-blur shadow-xl
-              px-4 py-3">
+    <div
+      class="w-full max-w-full
+            rounded-2xl border border-slate-800
+            bg-slate-950/85 backdrop-blur shadow-xl
+            px-4 py-3
+            transition-all duration-300"
+      :style="sidebarMin
+        ? 'width: 85%; margin-left: auto; margin-right: auto;'
+        : 'width: 65%; margin-left: auto;'"
+    >
+
+
 
     <div class="flex items-center gap-3">
 
       <!-- Flecha izquierda -->
       <button type="button"
-              class="shrink-0 w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
-                     hover:bg-slate-900 transition disabled:opacity-30"
+              class="shrink-0 w-10 h-10 rounded-full
+                    bg-emerald-600/90 text-white
+                    shadow-lg shadow-emerald-900/30
+                    hover:bg-emerald-500
+                    active:scale-95
+                    transition
+                    disabled:opacity-30 disabled:cursor-not-allowed"
               @click="timelinePrevItem()">
-        &lt;
+        ‹
       </button>
+
 
       <!-- Timeline -->
       <div class="relative flex-1 min-w-0">
@@ -122,7 +128,7 @@
         <!-- 6 items iguales -->
         <div class="flex gap-3">
           <template x-for="slot in timelineSlots()" :key="slot?.codigo ?? Math.random()">
-            <div class="flex-1 min-w-0 text-center">
+            <div class="flex-1 min-w-[80px] text-center">
               <template x-if="slot">
                 <button @click="selectByCodigo(slot.codigo, true)" class="w-full">
                   <div class="mx-auto w-10 h-10 rounded-full border border-slate-700 bg-slate-950
@@ -142,152 +148,164 @@
 
       <!-- Flecha derecha -->
       <button type="button"
-              class="shrink-0 w-10 h-10 rounded-full border border-slate-700 bg-slate-950 text-slate-100
-                     hover:bg-slate-900 transition disabled:opacity-30"
+              class="shrink-0 w-10 h-10 rounded-full
+                    bg-emerald-600/90 text-white
+                    shadow-lg shadow-emerald-900/30
+                    hover:bg-emerald-500
+                    active:scale-95
+                    transition
+                    disabled:opacity-30 disabled:cursor-not-allowed"
               @click="timelineNextItem()">
-        &gt;
+        ›
       </button>
+
 
     </div>
   </div>
 </div>
 
-  {{-- SIDEBAR --}}
-  <aside
-    class="shrink-0 relative z-50 border-l border-slate-800 bg-slate-950/95 text-slate-100 transition-all duration-300"
-    :class="sidebarMin ? 'w-[72px]' : 'w-[420px]'"
+  {{-- SIDEBAR (misma estética que timeline) --}}
+<aside
+  class="shrink-0 relative z-50 text-slate-100 transition-all duration-300
+         border border-slate-800 rounded-2xl
+         bg-slate-950/85 backdrop-blur shadow-xl
+         m-3 overflow-hidden"
+  :class="sidebarMin ? 'w-[72px]' : 'w-[420px]'"
+>
+
+  {{-- Toggle (sobresale un poquito a la derecha) --}}
+  <button
+    style="top:6%; right:-10px; transform: translateY(-50%);"
+    class="absolute z-[80] w-8 h-8 rounded-full
+           bg-emerald-600/90 text-white
+           shadow-lg shadow-emerald-900/30
+           hover:bg-emerald-500 active:scale-95 transition
+           flex items-center justify-center"
+    @click="sidebarMin = !sidebarMin"
   >
+    <span x-text="sidebarMin ? '›' : '‹'"></span>
+  </button>
 
-    {{-- Toggle --}}
-    <button
-      class="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2
-            z-[80] w-8 h-8 rounded-full border border-slate-800
-            bg-slate-950/90 backdrop-blur shadow
-            flex items-center justify-center hover:bg-slate-900"
-      @click="sidebarMin = !sidebarMin"
-    >
-      <span x-text="sidebarMin ? '›' : '‹'"></span>
-    </button>
+  {{-- Header --}}
+  <div class="p-4 border-b border-slate-800/80" x-show="!sidebarMin">
+    <div class="text-xs text-slate-300 uppercase tracking-wide" x-text="detalle?.categoria ?? ''"></div>
+    <h2 class="text-lg font-bold text-slate-100 truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
 
-
-
-    {{-- Header --}}
-    <div class="p-4 border-b border-slate-800" x-show="!sidebarMin">
-      <div class="text-xs text-slate-400" x-text="detalle?.categoria ?? ''"></div>
-      <h2 class="text-lg font-bold truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
-
-      {{-- ✅ FIX: no rompas si detalle es null --}}
-      <div class="text-[11px] text-slate-500 mt-1" x-show="detalle?.codigo">
-        Código: <span x-text="detalle?.codigo ?? ''"></span>
-      </div>
+    <div class="text-[11px] text-slate-400 mt-1" x-show="detalle?.codigo">
+      Código: <span class="text-slate-200" x-text="detalle?.codigo ?? ''"></span>
     </div>
+  </div>
 
-    {{-- Body --}}
-    <div class="p-4 overflow-auto" :class="sidebarMin ? 'pt-14 h-screen' : 'h-[calc(100vh-57px)]'">
-      <template x-if="loading && !sidebarMin">
-        <div class="text-sm text-slate-400">Cargando…</div>
-      </template>
+  {{-- Body --}}
+  <div class="p-4 overflow-auto" :class="sidebarMin ? 'pt-14 h-screen' : 'h-[calc(100vh-57px)]'">
+    <template x-if="loading && !sidebarMin">
+      <div class="text-sm text-slate-300">Cargando…</div>
+    </template>
 
-      <template x-if="!loading && detalle && !sidebarMin">
-        <div class="space-y-4">
+    <template x-if="!loading && detalle && !sidebarMin">
+      <div class="space-y-4">
 
-          {{-- Tarjeta --}}
-          <div class="rounded-2xl overflow-hidden border border-[#e6e0cf] bg-[#faf7f0] text-[#2b2b2b] shadow-xl">
-            <div class="relative">
-              <template x-if="primaryAsset() && (primaryAsset().kind || '').toLowerCase() === 'image'">
-                <img class="w-full h-44 object-cover"
-                     :src="mediaUrlFromItem(primaryAsset())"
-                     :alt="(primaryAsset().titulo ?? detalle.titulo)">
-              </template>
-
-              <template x-if="!primaryAsset()">
-                <div class="p-6 text-center text-sm text-slate-600">Sin multimedia asociada</div>
-              </template>
-
-              <button
-                class="absolute top-3 right-3 px-3 py-1 rounded-xl bg-black/55 text-white text-xs backdrop-blur border border-white/20 hover:bg-black/65"
-                x-show="primaryAsset()"
-                @click="openPreview(primaryAsset())"
-              >Ampliar</button>
-            </div>
-
-            <div class="p-5 text-center space-y-3">
-              <div class="text-sm text-[#8a865f]" x-text="detalle.localidad ?? ''"></div>
-              <div class="text-[22px] leading-snug font-semibold text-[#6f6a3a]" x-text="detalle.titulo"></div>
-              <div class="text-sm text-[#4b4b4b] whitespace-pre-line" x-text="detalle.descripcion ?? ''"></div>
-              <div class="text-sm text-[#6b6b6b]" x-text="detalle.direccion ?? ''"></div>
-
-              <a :href="googleMapsUrl()" target="_blank" rel="noopener"
-                 class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-white font-semibold hover:bg-emerald-700">
-                <span>Cómo llegar</span><span>📍</span>
-              </a>
-            </div>
-          </div>
-
-          {{-- Galería por año --}}
-          <div class="space-y-2" x-show="Object.keys(galleryByYear()).length">
-            <div class="text-xs text-slate-400 uppercase tracking-wide">Galería (por año)</div>
-
-            <template x-for="(imgs, year) in galleryByYear()" :key="'year_' + year">
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/25 overflow-hidden">
-                <div class="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
-                  <div class="text-sm font-semibold text-slate-200" x-text="year"></div>
-                  <div class="text-[11px] text-slate-400" x-text="imgs.length + ' img'"></div>
-                </div>
-
-                <div class="p-3 grid grid-cols-2 gap-2">
-                  <template x-for="img in imgs" :key="img._fileId">
-                    <button type="button"
-                      class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950/30 hover:bg-slate-900 text-left"
-                      @click="openPreview(img)">
-                      <img :src="mediaUrlFromItem(img)" class="w-full h-28 object-cover" />
-                      <div class="p-2 space-y-1">
-                        <div class="text-xs text-slate-200 truncate" x-text="img.titulo || 'Imagen'"></div>
-                        <div class="text-[11px] text-slate-400 truncate" x-text="img.nota || ''"></div>
-                      </div>
-                    </button>
-                  </template>
-                </div>
-              </div>
+        {{-- Tarjeta (la dejamos “crema” si querés contraste, o la hacemos dark abajo) --}}
+        <div class="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950/40 text-slate-100 shadow-lg">
+          <div class="relative">
+            <template x-if="primaryAsset() && (primaryAsset().kind || '').toLowerCase() === 'image'">
+              <img class="w-full h-44 object-cover"
+                   :src="mediaUrlFromItem(primaryAsset())"
+                   :alt="(primaryAsset().titulo ?? detalle.titulo)">
             </template>
+
+            <template x-if="!primaryAsset()">
+              <div class="p-6 text-center text-sm text-slate-300">Sin multimedia asociada</div>
+            </template>
+
+            <button
+              class="absolute top-3 right-3 px-3 py-1 rounded-xl
+                     bg-slate-950/70 text-white text-xs backdrop-blur
+                     border border-slate-700 hover:bg-slate-900/80"
+              x-show="primaryAsset()"
+              @click="openPreview(primaryAsset())"
+            >Ampliar</button>
           </div>
 
-        </div>
-      </template>
+          <div class="p-5 text-center space-y-3">
+            <div class="text-sm text-slate-300" x-text="detalle.localidad ?? ''"></div>
+            <div class="text-[20px] leading-snug font-semibold text-slate-100" x-text="detalle.titulo"></div>
+            <div class="text-sm text-slate-200 whitespace-pre-line" x-text="detalle.descripcion ?? ''"></div>
+            <div class="text-sm text-slate-300" x-text="detalle.direccion ?? ''"></div>
 
-      <template x-if="!loading && !detalle && !sidebarMin">
-        <div class="text-sm text-slate-400">Elegí un punto o un ítem del timeline.</div>
-      </template>
-    </div>
-
-    {{-- Modal preview --}}
-    <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4"
-         x-show="previewOpen"
-         x-transition.opacity
-         @keydown.escape.window="previewOpen=false"
-         style="display:none;">
-      <div class="w-full max-w-5xl rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl">
-        <div class="p-3 flex items-center justify-between border-b border-slate-800">
-          <div class="text-sm text-slate-100 truncate" x-text="previewTitle"></div>
-          <button class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm" @click="previewOpen=false">
-            Cerrar
-          </button>
+            <a :href="googleMapsUrl()" target="_blank" rel="noopener"
+               class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl
+                      bg-emerald-600/90 px-4 py-2 text-white font-semibold
+                      hover:bg-emerald-500 transition">
+              <span>Cómo llegar</span><span>📍</span>
+            </a>
+          </div>
         </div>
 
-        <div class="bg-black">
-          <template x-if="previewKind === 'image'">
-            <img class="w-full max-h-[80vh] object-contain" :src="previewUrl" />
+        {{-- Galería por año --}}
+        <div class="space-y-2" x-show="Object.keys(galleryByYear()).length">
+          <div class="text-xs text-slate-300 uppercase tracking-wide">Galería (por año)</div>
+
+          <template x-for="(imgs, year) in galleryByYear()" :key="'year_' + year">
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 overflow-hidden">
+              <div class="px-3 py-2 border-b border-slate-800/80 flex items-center justify-between">
+                <div class="text-sm font-semibold text-slate-100" x-text="year"></div>
+                <div class="text-[11px] text-slate-400" x-text="imgs.length + ' img'"></div>
+              </div>
+
+              <div class="p-3 grid grid-cols-2 gap-2">
+                <template x-for="img in imgs" :key="img._fileId">
+                  <button type="button"
+                    class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950/30
+                           hover:bg-slate-900/40 text-left transition"
+                    @click="openPreview(img)">
+                    <img :src="mediaUrlFromItem(img)" class="w-full h-28 object-cover" />
+                    <div class="p-2 space-y-1">
+                      <div class="text-xs text-slate-100 truncate" x-text="img.titulo || 'Imagen'"></div>
+                      <div class="text-[11px] text-slate-400 truncate" x-text="img.nota || ''"></div>
+                    </div>
+                  </button>
+                </template>
+              </div>
+            </div>
           </template>
-
-          <template x-if="previewKind === 'pdf'">
-            <iframe class="w-full h-[80vh] bg-white" :src="previewUrl"></iframe>
-          </template>
         </div>
+
+      </div>
+    </template>
+
+    <template x-if="!loading && !detalle && !sidebarMin">
+      <div class="text-sm text-slate-300">Elegí un punto o un ítem del timeline.</div>
+    </template>
+  </div>
+
+  {{-- Modal preview (lo dejo igual, ya coincide) --}}
+  <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4"
+       x-show="previewOpen"
+       x-transition.opacity
+       @keydown.escape.window="previewOpen=false"
+       style="display:none;">
+    <div class="w-full max-w-5xl rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl">
+      <div class="p-3 flex items-center justify-between border-b border-slate-800">
+        <div class="text-sm text-slate-100 truncate" x-text="previewTitle"></div>
+        <button class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm" @click="previewOpen=false">
+          Cerrar
+        </button>
+      </div>
+
+      <div class="bg-black">
+        <template x-if="previewKind === 'image'">
+          <img class="w-full max-h-[80vh] object-contain" :src="previewUrl" />
+        </template>
+
+        <template x-if="previewKind === 'pdf'">
+          <iframe class="w-full h-[80vh] bg-white" :src="previewUrl"></iframe>
+        </template>
       </div>
     </div>
-  </aside>
+  </div>
+</aside>
 
-</div>
 @endsection
 
 @push('scripts')
