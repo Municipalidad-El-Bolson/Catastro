@@ -14,8 +14,11 @@ class ExcelLugaresService
 
     public function lugares(): array
     {
-        $lugares  = $this->importRows();    // Import
-        $imagenes = $this->imagenesRows();  // Imagenes
+        $lugares  = $this->importRows();     // Import
+        $imagenes = $this->imagenesRows();   // Imagenes
+
+        // ✅ NUEVO: index de Categorias por Subtipo -> (icono, color)
+        $catIndex = $this->categoriasIndex();
 
         // indexar imagenes por codigo (normalizado)
         $imgsByCodigo = [];
@@ -28,23 +31,41 @@ class ExcelLugaresService
         foreach ($lugares as &$l) {
             $cod = $this->code($l['codigo'] ?? null);
 
+            // ✅ NUEVO: aplicar icono/color sugeridos según "categoria" (subtipo)
+            $subtipoKey = $this->normKey($l['categoria'] ?? '');
+            $conf = $subtipoKey !== '' ? ($catIndex[$subtipoKey] ?? null) : null;
+
+            if ($conf) {
+                // icono: si no hay icono definido en import, usar sugerido
+                if (empty($l['icono'])) {
+                    $l['icono'] = (string)($conf['icono'] ?? '');
+                }
+
+                // color: si está default (#2563eb) o vacío, usar sugerido
+                $cur = trim((string)($l['color'] ?? ''));
+                if ($cur === '' || mb_strtolower($cur) === '#2563eb') {
+                    $sug = trim((string)($conf['color'] ?? ''));
+                    if ($sug !== '') $l['color'] = $sug;
+                }
+            }
+
+            // assets desde Import (principal)
             $importAssets = [];
             $importFileId = $this->code($l['drive_file_id'] ?? '');
             if ($importFileId !== '') {
                 $importAssets[] = [
-                    'codigo'        => $cod,
-                    'drive_file_id' => $importFileId,
-                    'kind'          => (string)($l['import_kind'] ?? 'image'),
-                    'anio'          => $l['anio'] ?? null,
+                    'codigo'         => $cod,
+                    'drive_file_id'  => $importFileId,
+                    'kind'           => (string)($l['import_kind'] ?? 'image'),
+                    'anio'           => $l['anio'] ?? null,
                     'asset_categoria'=> '', // opcional
-                    'titulo'        => (string)($l['titulo'] ?? 'Archivo'),
-                    'orden'         => -100, // para que aparezca primero
-                    'nota'          => 'Import',
+                    'titulo'         => (string)($l['titulo'] ?? 'Archivo'),
+                    'orden'          => -100, // para que aparezca primero
+                    'nota'           => 'Import',
                 ];
             }
 
             $sheetAssets = $imgsByCodigo[$cod] ?? [];
-
             $l['imagenes'] = array_merge($importAssets, $sheetAssets);
 
             usort($l['imagenes'], function ($a, $b) {
@@ -60,7 +81,6 @@ class ExcelLugaresService
 
         return $lugares;
     }
-
 
     public function findByCodigo(string $codigo): ?array
     {
@@ -134,11 +154,16 @@ class ExcelLugaresService
         return trim((string)$v);
     }
 
+    /**
+     * Normaliza claves para lookup (Subtipo/categoria):
+     * - minúsculas
+     * - trim
+     * - espacios múltiples a uno
+     */
     private function normKey($v): string
     {
         $s = trim((string)$v);
         $s = mb_strtolower($s);
-        // normalizar espacios
         $s = preg_replace('/\s+/', ' ', $s);
         return $s;
     }
@@ -154,7 +179,6 @@ class ExcelLugaresService
         $s = trim((string)$v);
         if ($s === '') return '';
 
-        // si viene "2,1103E+16" lo dejamos estable
         $s = str_replace(',', '.', $s);
         $s = preg_replace('/\s+/', '', $s);
 
@@ -169,6 +193,32 @@ class ExcelLugaresService
         $s = str_replace(',', '.', $s);
         $n = (float)$s;
         return is_finite($n) ? $n : null;
+    }
+
+    // ✅ NUEVO: construir lookup Subtipo -> icono/color (desde hoja Categorias)
+    private function categoriasIndex(): array
+    {
+        $rows = $this->readSheetAssoc('Categorias');
+        if (!$rows) return [];
+
+        $idx = [];
+
+        foreach ($rows as $r) {
+            // soportar variantes de header por si cambian
+            $subtipo = $r['Subtipo'] ?? $r['subtipo'] ?? $r['SUBTIPO'] ?? '';
+            $key = $this->normKey($subtipo);
+            if ($key === '') continue;
+
+            $icono = $r['Icono_sugerido'] ?? $r['icono_sugerido'] ?? $r['ICONO_SUGERIDO'] ?? '';
+            $color = $r['Color_sugerido'] ?? $r['color_sugerido'] ?? $r['COLOR_SUGERIDO'] ?? '';
+
+            $idx[$key] = [
+                'icono' => trim((string)$icono),
+                'color' => trim((string)$color),
+            ];
+        }
+
+        return $idx;
     }
 
     private function importRows(): array
@@ -193,15 +243,17 @@ class ExcelLugaresService
                 'anio'         => $this->trimStr($row['anio'] ?? ''),
                 'lat'          => $lat,
                 'lng'          => $lng,
+
+                // ⚠️ Import.categoria = Subtipo
                 'categoria'    => $this->trimStr($row['categoria'] ?? ''),
 
-                // ✅ PASO 3 (IMPORTANTE)
+                // principal asset (Import)
                 'drive_file_id'=> $this->code($row['drive_file_id'] ?? ''),
                 'import_kind'  => $this->trimStr($row['kind'] ?? 'image'),
 
-                // estilo default (después lo vas a pisar con Categorias)
-                'color'        => '#2563eb',
-                'icono'        => '',
+                // default (se pisa con CategoriasIndex si corresponde)
+                'color'        => $this->trimStr($row['color'] ?? '#2563eb') ?: '#2563eb',
+                'icono'        => $this->trimStr($row['icono'] ?? ''),
             ];
         }
 
@@ -236,6 +288,4 @@ class ExcelLugaresService
         usort($out, fn($a,$b) => ((int)$a['orden'] <=> (int)$b['orden']));
         return $out;
     }
-
-
 }

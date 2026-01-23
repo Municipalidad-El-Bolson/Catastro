@@ -206,9 +206,10 @@
               <template x-if="slot">
                 <button @click="selectByCodigo(slot.codigo, true)" class="w-full">
                   <div class="mx-auto w-10 h-10 rounded-full border border-slate-700 bg-slate-950
-                              text-slate-100 flex items-center justify-center text-xs font-semibold">
-                    <span x-text="slot.codigo"></span>
+                              text-slate-100 flex items-center justify-center text-base font-semibold">
+                    <span x-text="slot.emoji || slot.codigo"></span>
                   </div>
+
                   <div class="mt-2 text-xs text-slate-100 line-clamp-2">
                     <span x-text="slot.titulo"></span>
                   </div>
@@ -282,9 +283,12 @@
                 z-10 pointer-events-none"></div>
 
               <template x-if="primaryAsset()">
-                <img class="w-full h-44 object-cover"
-                    :src="mediaUrlFromItem(primaryAsset())"
-                    :alt="(primaryAsset()?.titulo ?? detalle?.titulo ?? 'Imagen')">
+                <img
+                  class="w-full h-44 object-cover cursor-zoom-in"
+                  :src="mediaUrlFromItem(primaryAsset())"
+                  :alt="(primaryAsset()?.titulo ?? detalle?.titulo ?? 'Imagen')"
+                  @click="openPreview(primaryAsset())"
+                />
               </template>
 
               <template x-if="!primaryAsset()">
@@ -346,7 +350,7 @@
                       <button type="button"
                         class="ui-thumb text-left"
                         @click="openPreview(img)">
-                        <img :src="mediaUrlFromItem(img)" />
+                        <img class="cursor-zoom-in" :src="mediaUrlFromItem(img)" />
                         <div class="p-2 space-y-1">
                           <div class="text-xs text-slate-100 truncate" x-text="img.titulo || 'Imagen'"></div>
                           <div class="text-[11px] text-slate-300 truncate" x-text="img.nota || ''"></div>
@@ -424,13 +428,64 @@ document.addEventListener('alpine:init', () => {
     timelinePage: 0,
     timelinePageSize: 6,
 
+    emojiKey(emoji) {
+      const e = String(emoji || '📍');
+      return 'ico_' + Array.from(e).map(ch => ch.codePointAt(0).toString(16)).join('_');
+    },
+    makeEmojiPinImage(emoji) {
+      const size = 96;
+
+      const cnv = document.createElement('canvas');
+      cnv.width = size;
+      cnv.height = size;
+
+      const ctx = cnv.getContext('2d', { willReadFrequently: true });
+      ctx.clearRect(0, 0, size, size);
+
+      // sombra
+      ctx.shadowColor = 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 6;
+
+      // círculo blanco
+      ctx.beginPath();
+      ctx.arc(size/2, size/2 - 6, 28, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      // palo
+      ctx.shadowBlur = 0;
+      const x = size/2 - 3, y = size/2 + 18, w = 6, h = 24, r = 3;
+      ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.lineTo(x+w-r, y);
+      ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+      ctx.lineTo(x+w, y+h-r);
+      ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+      ctx.lineTo(x+r, y+h);
+      ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+      ctx.lineTo(x, y+r);
+      ctx.quadraticCurveTo(x, y, x+r, y);
+      ctx.closePath();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      // emoji
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '28px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji';
+      ctx.fillStyle = '#2563eb';
+      ctx.fillText(String(emoji || '📍'), size/2, size/2 - 6);
+
+      const img = ctx.getImageData(0, 0, size, size);
+      return { width: size, height: size, data: img.data };
+    },
     timelineSlots() {
       const items = this.timelinePageItems();
       const slots = items.slice(0, this.timelinePageSize);
       while (slots.length < this.timelinePageSize) slots.push(null);
       return slots;
     },
-
     timelineTotalPages() {
       const n = this.timelineLugares?.length || 0;
       return Math.max(1, Math.ceil(n / this.timelinePageSize));
@@ -449,7 +504,6 @@ document.addEventListener('alpine:init', () => {
       const page = Math.floor(i / this.timelinePageSize);
       this.timelinePage = Math.max(0, Math.min(this.timelineTotalPages() - 1, page));
     },
-
     selectedCodigo() {
       return this.detalle?.codigo ? String(this.detalle.codigo) : null;
     },
@@ -481,8 +535,6 @@ document.addEventListener('alpine:init', () => {
       if (idx < 0) return this.timelineSelectAt(this.timelinePage * this.timelinePageSize);
       this.timelineSelectAt(idx + 1);
     },
-
-
     initialsFromTitle(t) {
       const s = String(t || '').trim();
       if (!s) return '•';
@@ -511,7 +563,6 @@ document.addEventListener('alpine:init', () => {
       const id = this.fileIdOf(item);
       return id ? this.mediaUrl(id) : '';
     },
-
     sortByCodigo(a, b) {
       const sa = String(a?.codigo ?? '');
       const sb = String(b?.codigo ?? '');
@@ -521,7 +572,6 @@ document.addEventListener('alpine:init', () => {
       if (aNum && bNum) return na - nb;
       return sa.localeCompare(sb, 'es', { numeric: true, sensitivity: 'base' });
     },
-
     imagesOnly() {
       const items = this.detalle?.imagenes || [];
       return items
@@ -533,23 +583,23 @@ document.addEventListener('alpine:init', () => {
         .map(i => ({ ...i, _fileId: this.fileIdOf(i) }))
         .filter(i => !!i._fileId);
     },
-
-
     primaryAsset() {
       const imgs = this.imagesOnly();
       if (!imgs.length) return null;
       return this._mediaPrimary || imgs[0];
     },
-
     openPreview(item) {
       const id = this.fileIdOf(item);
       if (!id) return;
-      this.previewKind  = (item?.kind || 'image').toLowerCase();
-      this.previewTitle = item?.titulo || 'Vista previa';
-      this.previewUrl   = this.mediaUrl(id);
+
+      const raw = String(item?.kind || '').toLowerCase();
+      const kind = raw.includes('pdf') ? 'pdf' : 'image';
+
+      this.previewKind  = kind;
+      this.previewTitle = String(item?.titulo || item?.title || 'Vista previa');
+      this.previewUrl   = this.mediaUrl(id) + '?v=' + Date.now(); // cache-bust
       this.previewOpen  = true;
     },
-
     galleryByYear() {
       const imgs = this.imagesOnly()
         .map(i => ({
@@ -572,7 +622,6 @@ document.addEventListener('alpine:init', () => {
       }
       return grouped;
     },
-
     googleMapsUrl() {
       if (!this.detalle) return '#';
       const lat = Number(this.detalle.lat);
@@ -580,7 +629,6 @@ document.addEventListener('alpine:init', () => {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '#';
       return `https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=${lat},${lng}&travelmode=walking`;
     },
-
     initWatchers() {
       this.$watch('sidebarMin', () => {
         this.$nextTick(() => setTimeout(() => { try { this.map?.resize(); } catch(e) {} }, 80));
@@ -608,7 +656,14 @@ document.addEventListener('alpine:init', () => {
       await this.cargarDetalle(cod);
 
       if (p && this.map) {
-        try { this.map.setFilter('lugares-selected', ['==', ['get', 'id'], cod]); } catch(e) {}
+        try {
+          this.map.setFilter('lugares-selected', [
+            'any',
+            ['==', ['get', 'id'], cod],
+            ['==', ['get', 'codigo'], cod],
+          ]);
+        } catch(e) {}
+
         try {
           this.map.easeTo({
             center: [Number(p.lng), Number(p.lat)],
@@ -653,11 +708,34 @@ document.addEventListener('alpine:init', () => {
       this.map.on('load', async () => {
         const geo = await fetch(@json(route('centenario.geojson'))).then(r => r.json());
 
+        // Normalizar icon_key si el backend no lo manda
+        for (const f of (geo?.features || [])) {
+          const props = (f.properties ||= {});
+          if (!props.icon_key) {
+            props.icon_key = this.emojiKey(props.icono || '📍');
+          }
+        }
+
+
+        // 2) Registrar imágenes (una por icon_key)
+        const keys = Array.from(new Set((geo?.features || []).map(f => String(f?.properties?.icon_key || '')).filter(Boolean)));
+        for (const key of keys) {
+          if (this.map.hasImage(key)) continue;
+
+          const feature = (geo?.features || []).find(f => f?.properties?.icon_key === key);
+          const emoji = feature?.properties?.icono || '📍';
+          const img = this.makeEmojiPinImage(emoji);
+          this.map.addImage(key, img);
+
+        }
+
+        // 3) feats para timeline (UI)
         const feats = (geo?.features || []).map(f => ({
           codigo: String(f?.properties?.codigo ?? f?.properties?.id ?? ''),
           titulo: String(f?.properties?.titulo ?? ''),
           categoria: String(f?.properties?.categoria ?? ''),
           color: String(f?.properties?.color ?? '#2563eb'),
+          emoji: String(f?.properties?.icono ?? '📍'),
           lng: Number(f?.geometry?.coordinates?.[0]),
           lat: Number(f?.geometry?.coordinates?.[1]),
         })).filter(x => x.codigo && Number.isFinite(x.lat) && Number.isFinite(x.lng));
@@ -665,26 +743,28 @@ document.addEventListener('alpine:init', () => {
         feats.sort((a,b) => this.sortByCodigo(a,b));
         this.timelineLugares = feats;
 
+        this._lugaresByCodigo = {};
+        for (const p of feats) this._lugaresByCodigo[String(p.codigo)] = p;
+
         if (this.timelineLugares.length && !this.detalle) {
           this.selectByCodigo(this.timelineLugares[0].codigo, false);
         }
 
-        this._lugaresByCodigo = {};
-        for (const p of feats) this._lugaresByCodigo[String(p.codigo)] = p;
-
+        // 4) Source geojson
         if (!this.map.getSource('lugares')) {
           this.map.addSource('lugares', { type:'geojson', data: geo });
         } else {
           this.map.getSource('lugares').setData(geo);
         }
 
+        // 5) Circulito de color (debajo del pin)
         if (!this.map.getLayer('lugares-points')) {
           this.map.addLayer({
             id:'lugares-points',
             type:'circle',
             source:'lugares',
             paint:{
-              'circle-radius': 7,
+              'circle-radius': 6,
               'circle-stroke-width': 2,
               'circle-stroke-color': '#fff',
               'circle-color': ['coalesce', ['get','color'], '#2563eb']
@@ -692,12 +772,34 @@ document.addEventListener('alpine:init', () => {
           });
         }
 
+        // 6) Pin con icon-image (emoji)
+        if (this.map.getLayer('lugares-emoji')) {
+          this.map.removeLayer('lugares-emoji');
+        }
+
+        this.map.addLayer({
+          id: 'lugares-emoji',
+          type: 'symbol',
+          source: 'lugares',
+          layout: {
+            'icon-image': ['get', 'icon_key'],
+            'icon-size': 0.75,
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          }
+        });
+
+
+        // 7) Selected ring (filtra por id o codigo)
         if (!this.map.getLayer('lugares-selected')) {
           this.map.addLayer({
             id: 'lugares-selected',
             type: 'circle',
             source: 'lugares',
-            filter: ['==', ['get', 'id'], '__none__'],
+            filter: ['any',
+              ['==', ['get', 'id'], '__none__'],
+              ['==', ['get', 'codigo'], '__none__']
+            ],
             paint: {
               'circle-radius': 13,
               'circle-color': '#fff',
@@ -706,22 +808,39 @@ document.addEventListener('alpine:init', () => {
           });
         }
 
+        const setSelected = (id) => {
+          try {
+            this.map.setFilter('lugares-selected', [
+              'any',
+              ['==', ['get', 'id'], id],
+              ['==', ['get', 'codigo'], id],
+            ]);
+          } catch(e) {}
+        };
+
+        // 8) Click + hover en ambos layers
         if (!this._clickBound) {
           this._clickBound = true;
 
-          this.map.on('click', 'lugares-points', (e) => {
+          const onPick = (e) => {
             const f = e.features?.[0];
             if (!f) return;
 
             const id = String(f.properties?.id ?? f.properties?.codigo ?? '');
             if (!id) return;
 
-            try { this.map.setFilter('lugares-selected', ['==', ['get', 'id'], id]); } catch(e){}
+            setSelected(id);
             this.selectByCodigo(id, false);
-          });
+          };
+
+          this.map.on('click', 'lugares-points', onPick);
+          this.map.on('click', 'lugares-emoji', onPick);
 
           this.map.on('mouseenter','lugares-points', ()=>this.map.getCanvas().style.cursor='pointer');
           this.map.on('mouseleave','lugares-points', ()=>this.map.getCanvas().style.cursor='');
+
+          this.map.on('mouseenter','lugares-emoji', ()=>this.map.getCanvas().style.cursor='pointer');
+          this.map.on('mouseleave','lugares-emoji', ()=>this.map.getCanvas().style.cursor='');
         }
 
         setTimeout(() => { try { this.map.resize(); } catch(e) {} }, 120);
@@ -729,6 +848,7 @@ document.addEventListener('alpine:init', () => {
 
       window.addEventListener('resize', ()=>{ try{ this.map.resize(); }catch(e){} });
     },
+
 
     async cargarDetalle(codigo) {
       this.loading = true;
