@@ -265,25 +265,26 @@
       <template x-if="!loading && detalle && !sidebarMin">
         <div class="space-y-4">
 
-          {{-- Tarjeta (la dejamos “crema” si querés contraste, o la hacemos dark abajo) --}}
+          {{-- Tarjeta principal --}}
           <div class="rounded-2xl overflow-hidden
             border border-slate-800/80
             bg-slate-950/60 backdrop-blur
             text-slate-100 shadow-xl shadow-black/50">
 
+            {{-- HERO (imagen + botón ampliar) --}}
             <div class="relative">
+              {{-- Overlay suave (no bloquea clicks) --}}
               <div class="absolute inset-0
                 bg-gradient-to-t
                 from-slate-950/70
                 via-slate-950/10
                 to-transparent
                 z-10 pointer-events-none"></div>
-              </div>
 
-              <template x-if="primaryAsset() && (primaryAsset().kind || '').toLowerCase() === 'image'">
+              <template x-if="primaryAsset()">
                 <img class="w-full h-44 object-cover"
                     :src="mediaUrlFromItem(primaryAsset())"
-                    :alt="(primaryAsset().titulo ?? detalle.titulo)">
+                    :alt="(primaryAsset()?.titulo ?? detalle?.titulo ?? 'Imagen')">
               </template>
 
               <template x-if="!primaryAsset()">
@@ -291,20 +292,21 @@
               </template>
 
               <button
+                type="button"
                 class="absolute z-20 top-3 right-3 px-3 py-1 rounded-xl
                       bg-slate-950/70 text-white text-xs backdrop-blur
                       border border-slate-700 hover:bg-slate-900/80"
                 x-show="primaryAsset()"
                 @click="openPreview(primaryAsset())"
               >Ampliar</button>
-
             </div>
 
+            {{-- Texto --}}
             <div class="p-5 text-center space-y-3 bg-slate-950/70">
-              <div class="text-sm text-slate-200" x-text="detalle.localidad ?? ''"></div>
-              <div class="text-[20px] leading-snug font-semibold text-slate-100" x-text="detalle.titulo"></div>
-              <div class="text-sm text-slate-100 whitespace-pre-line" x-text="detalle.descripcion ?? ''"></div>
-              <div class="text-sm text-slate-200" x-text="detalle.direccion ?? ''"></div>
+              <div class="text-sm text-slate-200" x-text="detalle?.localidad ?? ''"></div>
+              <div class="text-[20px] leading-snug font-semibold text-slate-100" x-text="detalle?.titulo ?? ''"></div>
+              <div class="text-sm text-slate-100 whitespace-pre-line" x-text="detalle?.descripcion ?? ''"></div>
+              <div class="text-sm text-slate-200" x-text="detalle?.direccion ?? ''"></div>
 
               <a :href="googleMapsUrl()" target="_blank" rel="noopener"
                 class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl
@@ -314,6 +316,7 @@
               </a>
             </div>
           </div>
+
 
           {{-- Galería por año --}}
           <div class="space-y-2" x-show="Object.keys(galleryByYear()).length">
@@ -522,10 +525,15 @@ document.addEventListener('alpine:init', () => {
     imagesOnly() {
       const items = this.detalle?.imagenes || [];
       return items
-        .filter(i => String(i?.kind || '').toLowerCase() === 'image')
+        .filter(i => {
+          const k = String(i?.kind || '').toLowerCase().trim();
+          // si no hay kind, asumimos que es imagen
+          return k === '' || k === 'image' || k === 'imagen' || k === 'img';
+        })
         .map(i => ({ ...i, _fileId: this.fileIdOf(i) }))
         .filter(i => !!i._fileId);
     },
+
 
     primaryAsset() {
       const imgs = this.imagesOnly();
