@@ -27,14 +27,14 @@
       z-index: 2;
     }
 
-    /* Scrollbar gris oscuro – estilo timeline */
-    .sidebar-scroll {
-      direction: rtl;              /* mueve la scrollbar a la IZQUIERDA */
+    /* Scrollbar estable y suave (sin RTL) */
+    .sidebar-scroll{
+      overflow-y: auto;
+      min-height: 0;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
     }
 
-    .sidebar-scroll > * {
-      direction: ltr;              /* el contenido sigue normal */
-    }
 
     .sidebar-scroll::-webkit-scrollbar {
       width: 8px;
@@ -168,78 +168,85 @@
 
     <div id="map" class="absolute inset-0"></div>
 
-    {{-- Overlay suave --}}
-    <div class="absolute inset-0 bg-gradient-to-t
-            from-slate-950/95 via-slate-950/35 to-transparent
-            z-10 pointer-events-none"></div>
+      {{-- Overlay suave --}}
+      <div class="absolute inset-0 bg-gradient-to-t
+              from-slate-950/70 via-slate-950/20 to-transparent
+              z-10 pointer-events-none"></div>
 
-    <div class="timeline-overlay"
-      x-show="timelineLugares.length"
-      x-transition.opacity
-      style="display:none;">
+      <div class="timeline-overlay"
+        x-show="timelineLugares.length"
+        x-transition.opacity
+        style="display:none;">
 
-      <div
-        class="w-full max-w-full
-              rounded-2xl border border-slate-800
-              bg-slate-950/85 backdrop-blur shadow-xl
-              px-4 py-3
-              transition-all duration-300"
-        :style="sidebarMin
-          ? 'width: 85%; margin-left: auto; margin-right: auto;'
-          : 'width: 65%; margin-left: auto;'"
-      >
+        <div
+          class="w-full max-w-full
+                rounded-2xl border border-slate-800
+                bg-slate-950/55 backdrop-blur shadow-xl
+                px-4 py-3
+                transition-all duration-300"
+          :style="sidebarMin
+            ? 'width: 85%; margin-left: auto; margin-right: auto;'
+            : 'width: 65%; margin-left: auto;'"
+        >
 
-      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3">
 
-      <button class="nav-round-btn text-[28px] leading-none font-black" @click="timelinePrevItem()">‹</button>
+          <button class="nav-round-btn text-[28px] leading-none font-black" @click="timelinePrevItem()" type="button">‹</button>
 
-      <!-- Timeline -->
-      <div class="relative flex-1 min-w-0">
+          <div class="relative flex-1 min-w-0">
+            <!-- riel -->
+            <div class="relative h-12">
+              <div class="absolute left-2 right-2 top-1/2 -translate-y-1/2 h-[2px] bg-slate-700/80"></div>
 
-        <!-- línea -->
-        <div class="absolute left-2 right-2 top-[18px] h-[2px] bg-slate-700/80"></div>
-
-        <!-- 6 items iguales -->
-        <div class="flex gap-3">
-          <template x-for="slot in timelineSlots()" :key="slot?.codigo ?? Math.random()">
-            <div class="flex-1 min-w-[80px] text-center">
-              <template x-if="slot">
-                <button @click="selectByCodigo(slot.codigo, true)" class="w-full">
-                  <div class="mx-auto w-10 h-10 rounded-full border border-slate-700 bg-slate-950
-                              text-slate-100 flex items-center justify-center text-base font-semibold">
-                    <span x-text="slot.emoji || slot.codigo"></span>
+              <!-- 6 slots iguales (FLEX, no grid) -->
+              <div class="absolute inset-0 flex items-center gap-3">
+                <template x-for="(slot, idx) in timelineSlots()" :key="slot ? slot.codigo : ('ph_' + idx)">
+                  <div class="flex-1 min-w-0 text-center" :class="slot ? '' : 'opacity-0 pointer-events-none'">
+                    <template x-if="slot">
+                      <button @click="selectByCodigo(slot.codigo, true)" class="w-full" type="button">
+                        <div class="mx-auto w-10 h-10 rounded-full border border-slate-700 bg-slate-950
+                                    text-slate-100 flex items-center justify-center text-base font-semibold">
+                          <span x-text="slot.emoji || slot.codigo"></span>
+                        </div>
+                      </button>
+                    </template>
                   </div>
+                </template>
+              </div>
+            </div>
 
-                  <div class="mt-2 text-xs text-slate-100 line-clamp-2">
-                    <span x-text="slot.titulo"></span>
-                  </div>
-                </button>
+            <!-- labels (también 6 iguales) -->
+            <div class="mt-2 flex gap-3">
+              <template x-for="(slot, idx) in timelineSlots()" :key="'lbl_' + (slot ? slot.codigo : idx)">
+                <div class="flex-1 min-w-0 text-center" :class="slot ? '' : 'opacity-0'">
+                  <template x-if="slot">
+                    <div class="text-xs text-slate-100 line-clamp-2" x-text="slot.titulo"></div>
+                  </template>
+                </div>
               </template>
             </div>
-          </template>
+          </div>
+
+          <button class="nav-round-btn text-[28px] leading-none font-black" @click="timelineNextItem()" type="button">›</button>
         </div>
-
-      </div>
-
-      <!-- Flecha derecha -->
-      <button class="nav-round-btn text-[28px] leading-none font-black" @click="timelineNextItem()">›</button>
     </div>
   </div>
-</div>
 
   {{-- SIDEBAR (misma estética que timeline) --}}
-<aside
-  class="shrink-0 relative z-50 text-slate-100 transition-all duration-300
-         border border-slate-800 rounded-2xl
-         bg-slate-950/85 backdrop-blur shadow-xl
-         m-3 overflow-visible"
+  <aside
+    class="shrink-0 relative z-50 text-slate-100 transition-all duration-300
+        border border-slate-800 rounded-2xl
+        bg-slate-950/55 backdrop-blur shadow-xl
+        m-3 overflow-hidden
+        flex flex-col h-[calc(100vh-1.5rem)] min-h-0"
   :class="sidebarMin ? 'w-[72px]' : 'w-[420px]'"
->
+  >
   {{-- Toggle (sobresale un poquito a la derecha, centrado) --}}
   <button
     class="absolute top-1/2 right-0 translate-x-1/2 -translate-y-1/2 z-[999]
           nav-round-btn text-xl font-bold"
-          @click="sidebarMin = !sidebarMin"
+    @click="sidebarMin = !sidebarMin"
+    type="button"
   >
     <span x-text="sidebarMin ? '›' : '‹'"></span>
   </button>
@@ -247,24 +254,23 @@
 
   <div class="h-full overflow-hidden rounded-2xl">
 
-    {{-- Header --}}
     <div class="p-4 border-b border-slate-800/80" x-show="!sidebarMin">
-      <div class="text-xs text-slate-300 uppercase tracking-wide" x-text="detalle?.categoria ?? ''"></div>
-      <h2 class="text-lg font-bold text-slate-100 truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
+    <div class="text-xs text-slate-300 uppercase tracking-wide" x-text="detalle?.categoria ?? ''"></div>
+    <h2 class="text-lg font-bold text-slate-100 truncate" x-text="detalle?.titulo ?? 'Detalle'"></h2>
 
-      <div class="text-[11px] text-slate-400 mt-1" x-show="detalle?.codigo">
-        Código: <span class="text-slate-200" x-text="detalle?.codigo ?? ''"></span>
-      </div>
+    <div class="text-[11px] text-slate-400 mt-1" x-show="detalle?.codigo">
+      Código: <span class="text-slate-200" x-text="detalle?.codigo ?? ''"></span>
     </div>
+  </div>
 
-    {{-- Body --}}
-    <div class="p-4 overflow-auto sidebar-scroll" :class="sidebarMin ? 'pt-14 h-screen' : 'h-[calc(100vh-57px)]'">
-      <template x-if="loading && !sidebarMin">
-        <div class="text-sm text-slate-300">Cargando…</div>
-      </template>
+  <!-- Body (ACÁ va el scroll) -->
+  <div class="sidebar-scroll flex-1 min-h-0 p-4 pb-24" :class="sidebarMin ? 'pt-14' : ''">
+    <template x-if="loading && !sidebarMin">
+      <div class="text-sm text-slate-300">Cargando…</div>
+    </template>
 
-      <template x-if="!loading && detalle && !sidebarMin">
-        <div class="space-y-4">
+    <template x-if="!loading && detalle && !sidebarMin">
+      <div class="space-y-4">
 
           {{-- Tarjeta principal --}}
           <div class="rounded-2xl overflow-hidden
@@ -287,22 +293,16 @@
                   class="w-full h-44 object-cover cursor-zoom-in"
                   :src="mediaUrlFromItem(primaryAsset())"
                   :alt="(primaryAsset()?.titulo ?? detalle?.titulo ?? 'Imagen')"
+                  loading="eager"
+                  decoding="async"
                   @click="openPreview(primaryAsset())"
                 />
+
               </template>
 
               <template x-if="!primaryAsset()">
                 <div class="p-6 text-center text-sm text-slate-300">Sin multimedia asociada</div>
               </template>
-
-              <button
-                type="button"
-                class="absolute z-20 top-3 right-3 px-3 py-1 rounded-xl
-                      bg-slate-950/70 text-white text-xs backdrop-blur
-                      border border-slate-700 hover:bg-slate-900/80"
-                x-show="primaryAsset()"
-                @click="openPreview(primaryAsset())"
-              >Ampliar</button>
             </div>
 
             {{-- Texto --}}
@@ -350,10 +350,15 @@
                       <button type="button"
                         class="ui-thumb text-left"
                         @click="openPreview(img)">
-                        <img class="cursor-zoom-in" :src="mediaUrlFromItem(img)" />
-                        <div class="p-2 space-y-1">
-                          <div class="text-xs text-slate-100 truncate" x-text="img.titulo || 'Imagen'"></div>
-                          <div class="text-[11px] text-slate-300 truncate" x-text="img.nota || ''"></div>
+                        <img class="cursor-zoom-in"
+                            :src="mediaUrlFromItem(img)"
+                            loading="lazy"
+                            decoding="async"
+                            draggable="false" />
+                        <div class="p-2">
+                          <template x-if="img.titulo && String(img.titulo).trim() !== ''">
+                            <div class="text-xs text-slate-100 truncate" x-text="img.titulo"></div>
+                          </template>
                         </div>
                       </button>
                     </template>
@@ -369,9 +374,10 @@
       </template>
 
       <template x-if="!loading && !detalle && !sidebarMin">
-        <div class="text-sm text-slate-300">Elegí un punto o un ítem del timeline.</div>
-      </template>
-    </div>
+      <div class="text-sm text-slate-300">Elegí un punto o un ítem del timeline.</div>
+    </template>
+  </div>
+</aside>
 
     {{-- Modal preview (lo dejo igual, ya coincide) --}}
     <template x-teleport="body">
@@ -401,7 +407,7 @@
       </div>
     </template>
   </div>
-</aside>
+</div>
 
 @endsection
 
@@ -597,7 +603,7 @@ document.addEventListener('alpine:init', () => {
 
       this.previewKind  = kind;
       this.previewTitle = String(item?.titulo || item?.title || 'Vista previa');
-      this.previewUrl   = this.mediaUrl(id) + '?v=' + Date.now(); // cache-bust
+      this.previewUrl = this.mediaUrl(id) + '?v=' + Date.now();
       this.previewOpen  = true;
     },
     galleryByYear() {
@@ -659,8 +665,8 @@ document.addEventListener('alpine:init', () => {
         try {
           this.map.setFilter('lugares-selected', [
             'any',
-            ['==', ['get', 'id'], cod],
-            ['==', ['get', 'codigo'], cod],
+            ['==', ['to-string', ['get', 'id']], cod],
+            ['==', ['to-string', ['get', 'codigo']], cod],
           ]);
         } catch(e) {}
 
@@ -797,9 +803,10 @@ document.addEventListener('alpine:init', () => {
             type: 'circle',
             source: 'lugares',
             filter: ['any',
-              ['==', ['get', 'id'], '__none__'],
-              ['==', ['get', 'codigo'], '__none__']
+              ['==', ['to-string', ['get', 'id']], '__none__'],
+              ['==', ['to-string', ['get', 'codigo']], '__none__'],
             ],
+
             paint: {
               'circle-radius': 13,
               'circle-color': '#fff',
@@ -810,13 +817,15 @@ document.addEventListener('alpine:init', () => {
 
         const setSelected = (id) => {
           try {
+            const cod = String(id);
             this.map.setFilter('lugares-selected', [
               'any',
-              ['==', ['get', 'id'], id],
-              ['==', ['get', 'codigo'], id],
+              ['==', ['to-string', ['get', 'id']], cod],
+              ['==', ['to-string', ['get', 'codigo']], cod],
             ]);
           } catch(e) {}
         };
+
 
         // 8) Click + hover en ambos layers
         if (!this._clickBound) {
@@ -829,7 +838,6 @@ document.addEventListener('alpine:init', () => {
             const id = String(f.properties?.id ?? f.properties?.codigo ?? '');
             if (!id) return;
 
-            setSelected(id);
             this.selectByCodigo(id, false);
           };
 
