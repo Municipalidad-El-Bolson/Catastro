@@ -3,21 +3,63 @@
 namespace App\Services\Centenario;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use Illuminate\Support\Facades\Cache;
+
+
 
 class ExcelLugaresService
 {
+    private ?Spreadsheet $spreadsheet = null;
+    private ?array $lugaresCached = null;
+    private ?array $lugaresIndexCached = null;
+
     private function xlsxPath(): string
     {
         return storage_path('app/centenario.xlsx');
     }
 
+    private function spreadsheet(): ?Spreadsheet
+    {
+        if ($this->spreadsheet) return $this->spreadsheet;
+
+        $path = $this->xlsxPath();
+        if (!file_exists($path)) return null;
+
+        $reader = IOFactory::createReaderForFile($path);
+        $reader->setReadDataOnly(true); // ✅ acelera
+        $this->spreadsheet = $reader->load($path);
+
+        return $this->spreadsheet;
+    }
+
+
     public function lugares(): array
+    {
+        // cache en memoria (misma request)
+        if ($this->lugaresCached !== null) return $this->lugaresCached;
+
+        $path = $this->xlsxPath();
+        if (!file_exists($path)) return $this->lugaresCached = [];
+
+        $v = filemtime($path) ?: 0;                 // cambia cuando reemplazás el excel
+        $key = "centenario.lugares.v{$v}";
+
+        $this->lugaresCached = Cache::remember($key, 3600, function () {
+            return $this->lugaresUncached();
+        });
+
+        return $this->lugaresCached;
+    }
+
+
+    public function lugaresUncached(): array
     {
         $lugares  = $this->importRows();     // Import
         $imagenes = $this->imagenesRows();   // Imagenes
 
-        // ✅ NUEVO: index de Categorias por Subtipo -> (icono, color)
+        // NUEVO: index de Categorias por Subtipo -> (icono, color)
         $catIndex = $this->categoriasIndex();
 
         // indexar imagenes por codigo (normalizado)
@@ -85,11 +127,19 @@ class ExcelLugaresService
     public function findByCodigo(string $codigo): ?array
     {
         $codigo = $this->code($codigo);
-        foreach ($this->lugares() as $l) {
-            if (($l['codigo'] ?? '') === $codigo) return $l;
+
+        // index en memoria (misma request)
+        if ($this->lugaresIndexCached === null) {
+            $this->lugaresIndexCached = [];
+            foreach ($this->lugares() as $l) {
+                $c = (string)($l['codigo'] ?? '');
+                if ($c !== '') $this->lugaresIndexCached[$c] = $l;
+            }
         }
-        return null;
+
+        return $this->lugaresIndexCached[$codigo] ?? null;
     }
+
 
     /**
      * Lee una hoja por nombre y devuelve filas como arrays asociativos (headers => value),
@@ -100,7 +150,9 @@ class ExcelLugaresService
         $path = $this->xlsxPath();
         if (!file_exists($path)) return [];
 
-        $spreadsheet = IOFactory::load($path);
+        $spreadsheet = $this->spreadsheet();
+        if (!$spreadsheet) return [];
+
 
         $sheet = $this->getSheetByNameInsensitive($spreadsheet->getAllSheets(), $sheetName);
         if (!$sheet) return [];

@@ -94,4 +94,3 @@ Route::prefix('centenario')->name('centenario.')->group(function () {
     Route::get('/geojson', [LugarController::class, 'geojson'])->name('geojson');
     Route::get('/{lugar}', [LugarController::class, 'show'])->name('show');
 });
-
