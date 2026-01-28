@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "centenario-patrimonio",
+  "private_key_id": "e1fe9b81ad2dc78fb463aff10b728a6c46198292",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDQW1cKdBN5k+bd\nZW+znA08qOosaIfKbCp56LIZ7Z75I9h2kS+MxeTFrE2A9EAgvj/yn5mXQ2sxBLcD\nVL7/eAR09vlzu3igdWyMJo9+DcJT9QqXXx/HTaFIxUS5e4ffYelYt/OFwUlqtxzJ\n0916+ViYLYdxEhfv9y5ZNfP25Fuzt3xYavNBkMs+iQyWXm3MFBieBLzWBG40g8uv\nrpdE+t+TUt2ljRXoVswnwfQJGzQe4KJSa+AdXPYYd6QqMTtl7scitnJ87bysBF8F\n5YVckUoxAvdyCYgXKWeRaomVk7IUgGEhhd8h82BaIYYNWxi8o4cNaosw2qfIys2Y\nq8Pvc8ofAgMBAAECggEAD+QvjtIMnDS+Inu2mc3Yqpw9hBaS6Mr4MGUhlF2txtXH\nkD+Bj2yWhsceACxg6b5o9THcDo/rUIlKBhyEFssKF/uwSfXt/NsH5OaaAiS9ghbJ\n8IKmU1al6v10wOrdkZmPqR8amUSFO3js3q3kkhkLe0vZrTOSlNBW/iHh0h5Xqiy8\nqjyP+DtP9/2oymSVYhs83ePl7m07vZQRomTom8+2zXS+3DFzW51PoIJhTP7plmHI\nszLzljsbGKQkG8tnhVKYm929z/gKDdBFb8D/0KsbQVCMJmZq+ubai4D9BQzAJ48G\nVHo1bzxxonvOdmtM5kHySro4QkCqtf4AKhhrZh8bCQKBgQD0563y6d0r0u52GMBq\ngQpUJHsZIKeVmblbBWleTXvInTy/ZSxPKGQny6dRk2PTPJQIGmDEH7MnFFFUuW8q\nrzTRa3yqe4I376hV3DPkW9UY9G4wMutDi8gQc2TrLKbF1vkCubpVqImLYV0cg8Ll\nG34b/btjbR3+wHDr/jZHfqDjeQKBgQDZy8mdiHhHi3qW5dJDlZNvjZm68Y7S4M/b\np+mMAFCHcnXf7O6qeb+egTwdE2XDM9CoM5sChwnlxM9IWbXir2WI6R383+g6C7N5\nJNt35No1XQ/TNUF8BRogyPolNO2UAYvhpQvx4S6VFZQyHGPRUZC8ysX49IX9YE16\np9JkHH9cVwKBgQDVeGCKXUkY2vpaXEbUTvhW0ZmvFGSfJOiJK1VmCrn76vq5hhGy\nSe3LNlv44jVgOex6h6uTKGJ7jN07sYrxtNigNkXrQE8IPNEJTjC5O0arQtwNDUU+\nkkfn9v2fdENGLZTNyGBgK9EAefS0VzF5jJZHBcrh5on/tXR4cBSWCw1oWQKBgQCJ\n4pXTETos+WX0MK3ssb60yi4Ah7vHUCLoSqb2RqC1D8cGrIbxEME6xVDci5JKgfxg\n8ML7V6jxeadNg9Y+HJMomYWtucfZL91BHg+AGTf4vuEs8zNxI/3FsdeERL0AjfYU\nNhyY1tpZ8l5vVz/unjgG/k1V7uEBZ73FoIf3b39GYwKBgQDUjl/g6PCQLjLv/hzD\nq/ME5FwJX/YYuYzwEfeaUPwAfyuLlsX1LqZYOAUem0oWjKaThVTzSZbX+Z7w+D0n\n7XAv+fsxLGcBnxYdOn7/0idu649lZHsA2b2B4BGlSDEvUa/ahZEupqurvhZVI3m/\nkWM45Ytzfm/LXl6Uw0bXA2iQ9Q==\n-----END PRIVATE KEY-----\n",
+  "client_email": "centenario-drive@centenario-patrimonio.iam.gserviceaccount.com",
+  "client_id": "100985710191951331512",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/centenario-drive%40centenario-patrimonio.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

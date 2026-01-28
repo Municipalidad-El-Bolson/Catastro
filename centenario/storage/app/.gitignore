@@ -2,3 +2,5 @@
 !private/
 !public/
 !.gitignore
+!google/
+!drive-service.json
