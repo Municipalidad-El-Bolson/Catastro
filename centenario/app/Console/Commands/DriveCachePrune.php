@@ -16,7 +16,7 @@ class DriveCachePrune extends Command
         $ttl  = $days * 86400;
 
         $disk = Storage::disk('local');
-        $dir = 'drive-cache';
+        $dir  = 'drive-cache';
 
         if (!$disk->exists($dir)) {
             $this->info('No existe drive-cache.');
@@ -34,11 +34,22 @@ class DriveCachePrune extends Command
             $cachedAt = (int)($meta['cached_at'] ?? 0);
 
             if ($cachedAt && ($now - $cachedAt) > $ttl) {
-                $base = substr($f, 0, -5); // sin .json
-                $bin = $base . '.bin';
+                $base = substr($f, 0, -5); 
 
                 $disk->delete($f);
+
+                $bin = $base . '.bin';
                 if ($disk->exists($bin)) $disk->delete($bin);
+
+                $webp = $base . '.webp';
+                if ($disk->exists($webp)) $disk->delete($webp);
+
+                $jpg = $base . '.jpg';
+                if ($disk->exists($jpg)) $disk->delete($jpg);
+
+                $png = $base . '.png';
+                if ($disk->exists($png)) $disk->delete($png);
+
                 $deleted++;
             }
         }

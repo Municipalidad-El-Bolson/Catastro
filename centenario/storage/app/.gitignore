@@ -2,3 +2,11 @@
 !private/
 !public/
 !.gitignore
+
+# Google Service Account Keys
+storage/app/google/*.json
+storage/keys/
+*.json
+
+# Environment secrets
+.env
